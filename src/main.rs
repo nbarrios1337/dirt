@@ -39,8 +39,8 @@ impl DomainName {
 #[derive(Debug, Clone)]
 struct DNS_Question {
     name: DomainName,
-    class: u32,
-    r#type: u8, // TODO definitely a future enum
+    class: u16,
+    r#type: u16, // TODO definitely a future enum
 }
 
 fn main() {
