@@ -1,3 +1,5 @@
+use rand::Rng;
+
 #[derive(Debug, Clone, Copy)] // TODO what other derives needed?
 struct DNS_Header {
     id: u16,
@@ -41,6 +43,29 @@ struct DNS_Question {
     name: DomainName,
     class: u16,
     r#type: u16, // TODO definitely a future enum
+}
+
+const CLASS_IN: u16 = 1;
+const TYPE_A: u16 = 1;
+pub fn build_query(domain_name: &str, record_type: u16) {
+    let id: u16 = rand::thread_rng().gen();
+    // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
+    const RECURSION_DESIRED: u16 = 1 << 8;
+    let header = DNS_Header {
+        id,
+        flags: RECURSION_DESIRED,
+        num_questions: 1,
+        num_answers: 0,
+        num_authorities: 0,
+        num_additionals: 0,
+    };
+
+    let name = DomainName::new(domain_name);
+    let question = DNS_Question {
+        name,
+        class: CLASS_IN,
+        r#type: record_type,
+    };
 }
 
 fn main() {
