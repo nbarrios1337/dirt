@@ -98,8 +98,24 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     buf
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
+    use std::net::UdpSocket;
     println!("Hello, world!");
+    let query_bytes = build_query("www.example.com", TYPE_A);
+    let dns_server_addr = "8.8.8.8:53";
+
+    // connection setup
+    let udp_sock = UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
+        .unwrap_or_else(|e| panic!("Couldn't bind to local address -- {e}"));
+
+    udp_sock
+        .connect(dns_server_addr)
+        .unwrap_or_else(|e| panic!("Couldn't connect to DNS Server @ {dns_server_addr} -- {e}"));
+
+    // query request
+    udp_sock.send(&query_bytes).expect("Couldn't send query");
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -137,6 +153,35 @@ mod tests {
             correct_bytes_str[4..],
             "Byte value mismatch"
         );
+
+        Ok(())
+    }
+
+    /// Returns a ready-to-use UDP socket connected to Google's DNS server
+    fn socket_setup() -> std::net::UdpSocket {
+        // Google DNS server address
+        let dns_server_addr = "8.8.8.8:53";
+
+        // Bind to any available local address and port
+        let udp_sock = std::net::UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
+            .unwrap_or_else(|e| panic!("Couldn't bind to local address -- {e}"));
+
+        udp_sock.connect(dns_server_addr).unwrap_or_else(|e| {
+            panic!("Couldn't connect to DNS Server @ {dns_server_addr} -- {e}")
+        });
+
+        udp_sock
+    }
+
+    #[test]
+    fn test_send_query() -> std::io::Result<()> {
+        let query_bytes = build_query("www.example.com", TYPE_A);
+
+        // connection setup
+        let udp_sock = socket_setup();
+
+        // query request
+        udp_sock.send(&query_bytes).expect("Couldn't send query");
 
         Ok(())
     }
