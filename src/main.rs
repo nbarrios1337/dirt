@@ -1,7 +1,7 @@
 use rand::Rng;
 
 #[derive(Debug, Clone, Copy)] // TODO what other derives needed?
-struct DNS_Header {
+struct DnsHeader {
     id: u16,
     flags: u16, // TODO bitflags?
     num_questions: u16,
@@ -10,7 +10,7 @@ struct DNS_Header {
     num_additionals: u16,
 }
 
-impl DNS_Header {
+impl DnsHeader {
     fn to_bytes(self) -> Vec<u8> {
         // 6 fields, 2 bytes each
         let mut buf: Vec<u8> = Vec::with_capacity(6 * 2);
@@ -53,13 +53,13 @@ impl DomainName {
     }
 }
 #[derive(Debug, Clone)]
-struct DNS_Question {
+struct DnsQuestion {
     name: DomainName,
     class: u16,
     r#type: u16, // TODO definitely a future enum
 }
 
-impl DNS_Question {
+impl DnsQuestion {
     fn to_bytes(&self) -> Vec<u8> {
         let mut buf = self.name.encode_dns_name();
         buf.extend_from_slice(&self.r#type.to_be_bytes());
@@ -74,7 +74,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();
     // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
     const RECURSION_DESIRED: u16 = 1 << 8;
-    let header = DNS_Header {
+    let header = DnsHeader {
         id,
         flags: RECURSION_DESIRED,
         num_questions: 1,
@@ -84,7 +84,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     };
 
     let name = DomainName::new(domain_name);
-    let question = DNS_Question {
+    let question = DnsQuestion {
         name,
         class: CLASS_IN,
         r#type: record_type,
