@@ -100,7 +100,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
 
 fn main() -> std::io::Result<()> {
     use std::net::UdpSocket;
-    println!("Hello, world!");
+
     let query_bytes = build_query("www.example.com", TYPE_A);
     let dns_server_addr = "8.8.8.8:53";
 
@@ -115,7 +115,30 @@ fn main() -> std::io::Result<()> {
     // query request
     udp_sock.send(&query_bytes).expect("Couldn't send query");
 
+    // query response
+    let mut recv_buf = [0u8; 1024];
+    match udp_sock.recv(&mut recv_buf) {
+        Ok(bytes_sent) => {
+            let recv_bytes = &recv_buf[..bytes_sent];
+            print_bytes_as_hex(recv_bytes);
+        }
+        Err(e) => {
+            let mut query_id_bytes = [0u8; 2];
+            query_id_bytes.clone_from_slice(&query_bytes[0..2]);
+            let query_id = u16::from_be_bytes(query_id_bytes);
+            eprintln!("No response returned for query {query_id} -- {e}");
+        }
+    }
+
     Ok(())
+}
+
+fn print_bytes_as_hex(bytes: &[u8]) {
+    eprint!("0x");
+    for b in bytes {
+        eprint!("{b:02X?}")
+    }
+    eprintln!();
 }
 
 #[cfg(test)]
