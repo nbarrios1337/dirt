@@ -1,8 +1,10 @@
-mod types;
+mod header;
+mod question;
 
 use rand::Rng;
 
-use types::*;
+use header::DnsHeader;
+use question::*;
 
 const CLASS_IN: u16 = 1;
 const TYPE_A: u16 = 1;
