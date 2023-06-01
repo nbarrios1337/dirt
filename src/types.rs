@@ -51,17 +51,17 @@ impl DomainName {
     }
 }
 #[derive(Debug, Clone)]
-pub struct DnsQuestion {
-    pub name: DomainName,
-    pub class: u16,
-    pub r#type: u16, // TODO definitely a future enum
+pub struct Question {
+    pub qname: DomainName,
+    pub qclass: u16,
+    pub qtype: u16, // TODO definitely a future enum
 }
 
-impl DnsQuestion {
+impl Question {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buf = self.name.encode_dns_name();
-        buf.extend_from_slice(&self.r#type.to_be_bytes());
-        buf.extend_from_slice(&self.class.to_be_bytes());
+        let mut buf = self.qname.encode_dns_name();
+        buf.extend_from_slice(&self.qtype.to_be_bytes());
+        buf.extend_from_slice(&self.qclass.to_be_bytes());
         buf
     }
 }

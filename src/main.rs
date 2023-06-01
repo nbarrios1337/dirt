@@ -20,10 +20,10 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     };
 
     let name = DomainName::new(domain_name);
-    let question = DnsQuestion {
-        name,
-        class: CLASS_IN,
-        r#type: record_type,
+    let question = Question {
+        qname: name,
+        qclass: CLASS_IN,
+        qtype: record_type,
     };
 
     let mut header_bytes = header.to_bytes();
