@@ -44,3 +44,48 @@ impl DnsHeader {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DnsHeader;
+
+    #[test]
+    fn encode_header() {
+        let header = DnsHeader {
+            id: 0x1314,
+            flags: 0,
+            num_questions: 1,
+            num_answers: 0,
+            num_authorities: 0,
+            num_additionals: 0,
+        };
+
+        let header_bytes = header.to_bytes();
+
+        let correct_bytes: Vec<u8> =
+            vec![0x13, 0x14, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0];
+
+        assert_eq!(header_bytes, correct_bytes);
+    }
+
+    #[test]
+    fn decode_header() {
+        let test_bytes = vec![
+            0x82, 0x98, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+
+        let expected_id = 0x8298;
+
+        // recursion desired
+        let expected_flags: u16 = 1 << 8;
+
+        let result_header = DnsHeader::from_bytes(&test_bytes);
+
+        assert_eq!(result_header.id, expected_id);
+        assert_eq!(result_header.flags, expected_flags);
+        assert_eq!(result_header.num_questions, 1);
+        assert_eq!(result_header.num_answers, 0);
+        assert_eq!(result_header.num_authorities, 0);
+        assert_eq!(result_header.num_additionals, 0);
+    }
+}
