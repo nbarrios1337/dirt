@@ -1,4 +1,5 @@
 mod header;
+mod qclass;
 mod qtype;
 mod question;
 
@@ -8,8 +9,6 @@ use header::DnsHeader;
 use qtype::QType;
 use question::*;
 
-const CLASS_IN: u16 = 1;
-const TYPE_A: u16 = 1;
 pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();
     // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
@@ -26,7 +25,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let name = DomainName::new(domain_name);
     let question = Question {
         qname: name,
-        qclass: CLASS_IN,
+        qclass: qclass::QClass::IN,
         qtype: QType::try_from(record_type).unwrap(),
     };
 
@@ -41,7 +40,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
 fn main() -> std::io::Result<()> {
     use std::net::UdpSocket;
 
-    let query_bytes = build_query("www.example.com", TYPE_A);
+    let query_bytes = build_query("www.example.com", qtype::QType::A.into());
     let dns_server_addr = "8.8.8.8:53";
 
     // connection setup
@@ -100,7 +99,7 @@ mod tests {
     fn test_build_query() -> std::fmt::Result {
         let correct_bytes_str =
             "82980100000100000000000003777777076578616d706c6503636f6d0000010001";
-        let query_bytes = build_query("www.example.com", TYPE_A);
+        let query_bytes = build_query("www.example.com", qtype::QType::A.into());
 
         let mut query_bytes_str = String::with_capacity(correct_bytes_str.len());
 
@@ -138,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_send_query() -> std::io::Result<()> {
-        let query_bytes = build_query("www.example.com", TYPE_A);
+        let query_bytes = build_query("www.example.com", qtype::QType::A.into());
 
         // connection setup
         let udp_sock = socket_setup();

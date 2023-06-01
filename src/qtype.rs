@@ -1,4 +1,4 @@
-/// The possible QTYPE field values used in resource records, as defined in [RFC 1035 3.2.3](https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.3)
+/// The possible QTYPE field values used in resource records, as defined in [RFC 1035 3.2.2 and 3.2.3](https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2)
 ///
 /// We use this enum is place of all TYPE _and_ QTYPE values, for code clarity's sake.
 /// > "all TYPEs are valid QTYPEs" -- RFC 1035
