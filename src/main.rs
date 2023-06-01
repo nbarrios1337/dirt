@@ -1,9 +1,11 @@
 mod header;
+mod qtype;
 mod question;
 
 use rand::Rng;
 
 use header::DnsHeader;
+use qtype::QType;
 use question::*;
 
 const CLASS_IN: u16 = 1;
@@ -25,7 +27,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let question = Question {
         qname: name,
         qclass: CLASS_IN,
-        qtype: record_type,
+        qtype: QType::try_from(record_type).unwrap(),
     };
 
     let mut header_bytes = header.to_bytes();
