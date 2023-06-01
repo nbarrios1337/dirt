@@ -1,4 +1,5 @@
 mod header;
+mod record;
 mod qclass;
 mod qtype;
 mod question;
