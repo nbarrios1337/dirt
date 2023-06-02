@@ -1,8 +1,8 @@
 mod header;
-mod record;
 mod qclass;
 mod qtype;
 mod question;
+mod record;
 
 use rand::Rng;
 
