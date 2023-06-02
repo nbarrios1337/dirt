@@ -87,17 +87,6 @@ fn print_bytes_as_hex(bytes: &[u8]) {
 mod tests {
     use crate::*;
 
-    /// Tests encoding of "google.com"
-    #[test]
-    fn qname_encoding() {
-        let correct_bytes = b"\x06google\x03com\x00";
-
-        let google_domain = DomainName::new("google.com");
-        let result_bytes = google_domain.encode_dns_name();
-
-        assert_eq!(result_bytes, correct_bytes);
-    }
-
     #[test]
     fn test_build_query() -> std::fmt::Result {
         let correct_bytes_str =

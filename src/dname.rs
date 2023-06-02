@@ -75,3 +75,19 @@ impl std::fmt::Display for DomainNameError {
 }
 
 impl std::error::Error for DomainNameError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests encoding of "google.com"
+    #[test]
+    fn qname_encoding() {
+        let correct_bytes = b"\x06google\x03com\x00";
+
+        let google_domain = DomainName::new("google.com");
+        let result_bytes = google_domain.encode_dns_name();
+
+        assert_eq!(result_bytes, correct_bytes);
+    }
+}
