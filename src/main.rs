@@ -1,3 +1,4 @@
+mod dname;
 mod header;
 mod qclass;
 mod qtype;
@@ -6,9 +7,10 @@ mod record;
 
 use rand::Rng;
 
+use dname::DomainName;
 use header::DnsHeader;
 use qtype::QType;
-use question::*;
+use question::Question;
 
 pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();

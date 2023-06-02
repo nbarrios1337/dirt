@@ -1,4 +1,4 @@
-use crate::{qclass::QClass, qtype::QType, question::DomainName};
+use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// A resource record
 #[derive(Debug, Clone)]
