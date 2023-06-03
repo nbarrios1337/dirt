@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DomainName(String);
 
 impl DomainName {
@@ -28,26 +28,63 @@ impl DomainName {
         encoded
     }
 
-    pub fn decode_dns_name(mut bytes: &[u8]) -> Result<Self> {
+    pub fn decode_dns_name(bytes: &[u8]) -> Result<Self> {
         use std::io::prelude::*;
-        let mut labels = Vec::new();
 
-        let mut label_bytes_buffer: Vec<u8> = Vec::with_capacity(Self::MAX_LABEL_SIZE);
+        let mut labels_metadata = Vec::new();
+        let mut bytes_cursor = std::io::Cursor::new(bytes);
 
-        // while the length octet is not zero
-        while bytes[0] != 0 {
-            let cur_length: usize = bytes[0] as usize;
-            // get exactly the amt of bytes for the current label
-            bytes
-                .read_exact(&mut label_bytes_buffer[..cur_length])
+        let mut cur_length_slice = [0u8];
+        // read positions and lengths per label
+        while (bytes_cursor.position() as usize) < bytes.len() {
+            // read into a single-byte slice
+            bytes_cursor
+                .read_exact(&mut cur_length_slice)
                 .map_err(DomainNameError::Io)?;
 
-            let bytes_to_convert = &label_bytes_buffer[..cur_length];
+            let cur_length = u8::from_be_bytes(cur_length_slice);
 
-            let cur_label =
-                std::str::from_utf8(bytes_to_convert).map_err(DomainNameError::Parse)?;
-            labels.push(cur_label);
+            // found the name delimiter
+            if cur_length == 0 {
+                break;
+            }
+
+            // TODO error check with MAX_LABEL_SIZE
+
+            // store position and length for later use
+            // the earlier single-byte read moved the cursor to the correct pos
+            labels_metadata.push((bytes_cursor.position(), cur_length));
+
+            // move to next length octet
+            bytes_cursor
+                .seek(std::io::SeekFrom::Current(cur_length as i64))
+                .map_err(DomainNameError::Io)?;
         }
+
+        // reset cursor for label reading
+        bytes_cursor.set_position(0);
+
+        let mut label_bytes_buffer = [0u8; Self::MAX_LABEL_SIZE];
+
+        let labels: Vec<String> = labels_metadata
+            .iter()
+            .map(|(label_pos, label_length)| {
+                let cur_label_bytes = &mut label_bytes_buffer[0..*label_length as usize];
+
+                // move to start of label
+                bytes_cursor.set_position(*label_pos);
+
+                bytes_cursor
+                    .read_exact(cur_label_bytes)
+                    .map_err(DomainNameError::Io)?;
+
+                let cur_label = std::str::from_utf8(cur_label_bytes)
+                    .map_err(DomainNameError::Parse)?
+                    .to_string();
+
+                Ok(cur_label)
+            })
+            .collect::<Result<Vec<String>>>()?;
 
         Ok(Self(labels.join(".")))
     }
@@ -60,7 +97,7 @@ impl DomainName {
 type Result<T> = std::result::Result<T, DomainNameError>;
 
 #[derive(Debug)]
-enum DomainNameError {
+pub enum DomainNameError {
     Io(std::io::Error),
     Parse(std::str::Utf8Error),
 }
@@ -89,5 +126,18 @@ mod tests {
         let result_bytes = google_domain.encode_dns_name();
 
         assert_eq!(result_bytes, correct_bytes);
+    }
+
+    /// Tests decoding of "google.com"
+    #[test]
+    fn qname_decoding() -> std::result::Result<(), DomainNameError> {
+        let correct_dname = DomainName::new("google.com");
+        let google_domain_bytes = b"\x06google\x03com\x00";
+
+        let result_dname = DomainName::decode_dns_name(google_domain_bytes)?;
+
+        assert_eq!(result_dname, correct_dname);
+
+        Ok(())
     }
 }
