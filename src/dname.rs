@@ -31,60 +31,37 @@ impl DomainName {
     pub fn decode_dns_name(bytes: &[u8]) -> Result<Self> {
         use std::io::prelude::*;
 
-        let mut labels_metadata = Vec::new();
+        // buffers and metadata storage
         let mut bytes_cursor = std::io::Cursor::new(bytes);
+        let mut label_bytes_buffer = [0u8; Self::MAX_LABEL_SIZE];
 
-        let mut cur_length_slice = [0u8];
-        // read positions and lengths per label
+        let mut labels: Vec<String> = Vec::new();
+
         while (bytes_cursor.position() as usize) < bytes.len() {
-            // read into a single-byte slice
+            // get length
+            let mut cur_label_length_slice = [0u8];
             bytes_cursor
-                .read_exact(&mut cur_length_slice)
+                .read_exact(&mut cur_label_length_slice)
                 .map_err(DomainNameError::Io)?;
-
-            let cur_length = u8::from_be_bytes(cur_length_slice);
+            let cur_label_length = u8::from_be_bytes(cur_label_length_slice);
 
             // found the name delimiter
-            if cur_length == 0 {
+            if cur_label_length == 0 {
                 break;
             }
 
-            // TODO error check with MAX_LABEL_SIZE
-
-            // store position and length for later use
-            // the earlier single-byte read moved the cursor to the correct pos
-            labels_metadata.push((bytes_cursor.position(), cur_length));
-
-            // move to next length octet
+            // set up exact buffer for label read
+            let cur_label_bytes = &mut label_bytes_buffer[0..cur_label_length as usize];
             bytes_cursor
-                .seek(std::io::SeekFrom::Current(cur_length as i64))
+                .read_exact(cur_label_bytes)
                 .map_err(DomainNameError::Io)?;
+
+            let cur_label = std::str::from_utf8(cur_label_bytes)
+                .map_err(DomainNameError::Parse)?
+                .to_string();
+
+            labels.push(cur_label);
         }
-
-        // reset cursor for label reading
-        bytes_cursor.set_position(0);
-
-        let mut label_bytes_buffer = [0u8; Self::MAX_LABEL_SIZE];
-
-        let labels: Vec<String> = labels_metadata
-            .iter()
-            .map(|(label_pos, label_length)| {
-                let cur_label_bytes = &mut label_bytes_buffer[0..*label_length as usize];
-
-                // move to start of label
-                bytes_cursor.set_position(*label_pos);
-
-                bytes_cursor
-                    .read_exact(cur_label_bytes)
-                    .map_err(DomainNameError::Io)?;
-
-                let cur_label = std::str::from_utf8(cur_label_bytes)
-                    .map_err(DomainNameError::Parse)?
-                    .to_string();
-
-                Ok(cur_label)
-            })
-            .collect::<Result<Vec<String>>>()?;
 
         Ok(Self(labels.join(".")))
     }
