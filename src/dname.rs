@@ -28,18 +28,18 @@ impl DomainName {
         encoded
     }
 
-    pub fn decode_dns_name(bytes: &[u8]) -> Result<Self> {
+    pub fn decode_dns_name(bytes: &[u8]) -> Result<(Self, usize)> {
         use std::io::prelude::*;
 
         // buffers and metadata storage
         let mut bytes_cursor = std::io::Cursor::new(bytes);
         let mut label_bytes_buffer = [0u8; Self::MAX_LABEL_SIZE];
+        let mut cur_label_length_slice = [0u8];
 
         let mut labels: Vec<String> = Vec::new();
 
         while (bytes_cursor.position() as usize) < bytes.len() {
             // get length
-            let mut cur_label_length_slice = [0u8];
             bytes_cursor
                 .read_exact(&mut cur_label_length_slice)
                 .map_err(DomainNameError::Io)?;
@@ -63,7 +63,7 @@ impl DomainName {
             labels.push(cur_label);
         }
 
-        Ok(Self(labels.join(".")))
+        Ok((Self(labels.join(".")), bytes_cursor.position() as usize))
     }
 
     pub fn new(domain_name: &str) -> Self {
@@ -111,9 +111,10 @@ mod tests {
         let correct_dname = DomainName::new("google.com");
         let google_domain_bytes = b"\x06google\x03com\x00";
 
-        let result_dname = DomainName::decode_dns_name(google_domain_bytes)?;
+        let (result_dname, moved_bytes) = DomainName::decode_dns_name(google_domain_bytes)?;
 
         assert_eq!(result_dname, correct_dname);
+        assert_eq!(moved_bytes, google_domain_bytes.len());
 
         Ok(())
     }
