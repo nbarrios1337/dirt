@@ -2,9 +2,10 @@
 pub struct DomainName(String);
 
 impl DomainName {
-    const MAX_LABEL_SIZE: usize = 63;
-    const MAX_NAME_SIZE: usize = 255;
-    const MAX_UDP_MSG_SIZE: usize = 512;
+    pub const MAX_LABEL_SIZE: usize = 63;
+    pub const MAX_NAME_SIZE: usize = 255;
+    pub const MAX_UDP_MSG_SIZE: usize = 512;
+    pub const TERMINATOR: u8 = 0;
 }
 
 impl From<String> for DomainName {
@@ -28,7 +29,7 @@ impl DomainName {
         encoded
     }
 
-    pub fn decode_dns_name(bytes: &[u8]) -> Result<(Self, usize)> {
+    pub fn decode_dns_name(bytes: &[u8]) -> Result<Self> {
         use std::io::prelude::*;
 
         // buffers and metadata storage
@@ -63,7 +64,7 @@ impl DomainName {
             labels.push(cur_label);
         }
 
-        Ok((Self(labels.join(".")), bytes_cursor.position() as usize))
+        Ok(Self(labels.join(".")))
     }
 
     pub fn new(domain_name: &str) -> Self {
@@ -111,10 +112,9 @@ mod tests {
         let correct_dname = DomainName::new("google.com");
         let google_domain_bytes = b"\x06google\x03com\x00";
 
-        let (result_dname, moved_bytes) = DomainName::decode_dns_name(google_domain_bytes)?;
+        let result_dname = DomainName::decode_dns_name(google_domain_bytes)?;
 
         assert_eq!(result_dname, correct_dname);
-        assert_eq!(moved_bytes, google_domain_bytes.len());
 
         Ok(())
     }

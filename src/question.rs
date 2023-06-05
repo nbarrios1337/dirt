@@ -24,27 +24,34 @@ impl Question {
         buf
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let (qname, metadata_pos) =
-            DomainName::decode_dns_name(bytes).map_err(QuestionError::Name)?;
+    pub fn from_bytes(mut bytes: &[u8]) -> Result<Self> {
+        use std::io::{BufRead, Read};
 
-        let bytes = &bytes[metadata_pos..];
+        // set up owned buffer for domain name parsing
+        let mut question_bytes = Vec::with_capacity(DomainName::MAX_NAME_SIZE);
 
-        let qtype = <[u8; 2]>::try_from(&bytes[0..2])
-            .map_err(QuestionError::Convert)
-            .map(u16::from_be_bytes)
-            .and_then(|val| match QType::try_from(val) {
-                Ok(qtype) => Ok(qtype),
-                Err(num_err) => Err(QuestionError::Type(num_err)),
-            })?;
+        // TODO use for question size?
+        // Read all the name-related bytes (delimited by zero octet)
+        let question_size = bytes
+            .read_until(DomainName::TERMINATOR, &mut question_bytes)
+            .map_err(QuestionError::Io)?;
+        let qname = DomainName::decode_dns_name(&question_bytes).map_err(QuestionError::Name)?;
 
-        let qclass = <[u8; 2]>::try_from(&bytes[2..4])
-            .map_err(QuestionError::Convert)
-            .map(u16::from_be_bytes)
-            .and_then(|val| match QClass::try_from(val) {
-                Ok(qclass) => Ok(qclass),
-                Err(num_err) => Err(QuestionError::Class(num_err)),
-            })?;
+        // reusable buffer for u16 parsing
+        let mut u16_buffer = [0u8; 2];
+
+        // qtype parsing
+        bytes
+            .read_exact(&mut u16_buffer)
+            .map_err(QuestionError::Io)?;
+        let qtype = QType::try_from(u16::from_be_bytes(u16_buffer)).map_err(QuestionError::Type)?;
+
+        // qclass parsing
+        bytes
+            .read_exact(&mut u16_buffer)
+            .map_err(QuestionError::Io)?;
+        let qclass =
+            QClass::try_from(u16::from_be_bytes(u16_buffer)).map_err(QuestionError::Class)?;
 
         Ok(Self {
             qname,
@@ -58,19 +65,19 @@ type Result<T> = std::result::Result<T, QuestionError>;
 
 #[derive(Debug)]
 pub enum QuestionError {
+    Io(std::io::Error),
     Name(DomainNameError),
     Type(num_enum::TryFromPrimitiveError<QType>),
     Class(num_enum::TryFromPrimitiveError<QClass>),
-    Convert(std::array::TryFromSliceError),
 }
 
 impl std::fmt::Display for QuestionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QuestionError::Name(e) => write!(f, "Name parsing error: {e}"),
-            QuestionError::Type(e) => write!(f, "type parsing error: {e}"),
-            QuestionError::Class(e) => write!(f, "class parsing error: {e}"),
-            QuestionError::Convert(e) => write!(f, "byte slice to primitive conversion error: {e}"),
+            Self::Io(e) => write!(f, "IO error: {e}"),
+            Self::Name(e) => write!(f, "Name parsing error: {e}"),
+            Self::Type(e) => write!(f, "type parsing error: {e}"),
+            Self::Class(e) => write!(f, "class parsing error: {e}"),
         }
     }
 }
