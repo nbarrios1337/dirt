@@ -1,17 +1,68 @@
+//! The question section is used to carry the "question" in most queries, i.e., the parameters that define what is being asked.
+//!
+//! The section contains QDCOUNT (usually 1) entries, each of the following format:
+//!
+//! ```text
+//!                                     1  1  1  1  1  1
+//!       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!     |                                               |
+//!     /                     QNAME                     /
+//!     /                                               /
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!     |                     QTYPE                     |
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!     |                     QCLASS                    |
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!
+//! where:
+//!
+//! QNAME           a domain name represented as a sequence of labels, where
+//!                 each label consists of a length octet followed by that
+//!                 number of octets. The domain name terminates with the
+//!                 zero length octet for the null label of the root.  Note
+//!                 that this field may be an odd number of octets; no
+//!                 padding is used.
+//!
+//! QTYPE           a two octet code which specifies the type of the query.
+//!                 The values for this field include all codes valid for a
+//!                 TYPE field, together with some more general codes which
+//!                 can match more than one type of RR.
+//!
+//! QCLASS          a two octet code that specifies the class of the query.
+//!                 For example, the QCLASS field is IN for the Internet.
+//! ```
+//!
+
 use crate::{
     dname::{DomainName, DomainNameError},
     qclass::QClass,
     qtype::QType,
 };
 
+/// Carries the parameters that define what is being asked
 #[derive(Debug, Clone)]
 pub struct Question {
+    /// a domain name represented as a sequence of labels,
+    /// where each label consists of a length octet followed by that number of octets.
+    ///
+    /// The domain name terminates with the zero length octet for the null label of the root.
+    ///
+    /// Note that this field may be an odd number of octets; no padding is used
     pub qname: DomainName,
+    /// a two octet code which specifies the type of the query.
+    ///
+    /// The values for this field include all codes valid for a TYPE field,
+    /// together with some more general codes which can match more than one type of RR.
     pub qtype: QType,
+    /// a two octet code that specifies the class of the query.
+    ///
+    /// For example, the QCLASS field is IN for the Internet.
     pub qclass: QClass,
 }
 
 impl Question {
+    /// Converts a [Question] to owned bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = self.qname.encode_dns_name();
 
@@ -24,6 +75,7 @@ impl Question {
         buf
     }
 
+    /// Reads a [Question] from a slice of bytes
     pub fn from_bytes(mut bytes: &[u8]) -> Result<Self> {
         use std::io::{BufRead, Read};
 
@@ -63,11 +115,16 @@ impl Question {
 
 type Result<T> = std::result::Result<T, QuestionError>;
 
+/// [QuestionError] wraps the errors that may be encountered during byte decoding of a [Question]
 #[derive(Debug)]
 pub enum QuestionError {
+    /// Stores an error encountered while using [std::io] traits and structs
     Io(std::io::Error),
+    /// Stores an error encountered while parsing the [DomainName]
     Name(DomainNameError),
+    /// Stores an error encountered while parsin the [QType]
     Type(num_enum::TryFromPrimitiveError<QType>),
+    /// Stores an error encountered while parsin the [QClass]
     Class(num_enum::TryFromPrimitiveError<QClass>),
 }
 
