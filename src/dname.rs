@@ -1,10 +1,19 @@
+//! Domain names in messages are expressed in terms of a sequence of labels.
+//!
+//! See more in [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034)
+//! and [RFC 1035 section 3.1](https://datatracker.ietf.org/doc/html/rfc1035#section-3.1)
+
+/// Domain names define a name of a node in requests and responses
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DomainName(String);
 
 impl DomainName {
+    /// The maximum size of a single label within a domain name
     pub const MAX_LABEL_SIZE: usize = 63;
+    /// The maximum number of octets that represent a domain name (i.e., the sum of all label octets and label lengths)
     pub const MAX_NAME_SIZE: usize = 255;
     pub const MAX_UDP_MSG_SIZE: usize = 512;
+    /// a domain name is terminated by a length byte of zero
     pub const TERMINATOR: u8 = 0;
 }
 
@@ -15,6 +24,7 @@ impl From<String> for DomainName {
 }
 
 impl DomainName {
+    /// Converts a [DomainName] to owned bytes
     pub fn encode_dns_name(&self) -> Vec<u8> {
         let mut encoded: Vec<u8> = self
             .0
@@ -29,6 +39,7 @@ impl DomainName {
         encoded
     }
 
+    /// Reads a [DomainName] from a slice of bytes
     pub fn decode_dns_name(bytes: &[u8]) -> Result<Self> {
         use std::io::prelude::*;
 
@@ -67,6 +78,7 @@ impl DomainName {
         Ok(Self(labels.join(".")))
     }
 
+    /// Creates a new [DomainName]
     pub fn new(domain_name: &str) -> Self {
         DomainName(domain_name.to_string())
     }
@@ -74,9 +86,12 @@ impl DomainName {
 
 type Result<T> = std::result::Result<T, DomainNameError>;
 
+/// [DomainNameError] wraps the errors that may be encountered during byte decoding of a [DomainName]
 #[derive(Debug)]
 pub enum DomainNameError {
+    /// Stores an error encountered while using [std::io] traits and structs
     Io(std::io::Error),
+    /// Stores an error encountered while using [std::convert] traits and structs
     Parse(std::str::Utf8Error),
 }
 
