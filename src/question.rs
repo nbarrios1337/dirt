@@ -140,3 +140,39 @@ impl std::fmt::Display for QuestionError {
 }
 
 impl std::error::Error for QuestionError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_question() {
+        let question = Question {
+            qname: DomainName::new("google.com"),
+            qclass: QClass::IN,
+            qtype: QType::A,
+        };
+
+        let correct_bytes = b"\x06google\x03com\x00\x00\x01\x00\x01";
+        let result_bytes = question.to_bytes();
+
+        assert_eq!(result_bytes, correct_bytes);
+    }
+
+    #[test]
+    fn decode_question() -> Result<()> {
+        let correct_question = Question {
+            qname: DomainName::new("google.com"),
+            qclass: QClass::IN,
+            qtype: QType::A,
+        };
+
+        let bytes = b"\x06google\x03com\x00\x00\x01\x00\x01";
+        let result_question = Question::from_bytes(bytes)?;
+
+        assert_eq!(result_question.qname, correct_question.qname);
+        assert_eq!(result_question.qtype, correct_question.qtype);
+        assert_eq!(result_question.qclass, correct_question.qclass);
+        Ok(())
+    }
+}

@@ -123,7 +123,7 @@ mod tests {
 
     /// Tests decoding of "google.com"
     #[test]
-    fn qname_decoding() -> std::result::Result<(), DomainNameError> {
+    fn qname_decoding() -> Result<()> {
         let correct_dname = DomainName::new("google.com");
         let google_domain_bytes = b"\x06google\x03com\x00";
 
