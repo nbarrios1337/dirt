@@ -25,7 +25,7 @@ impl From<String> for DomainName {
 
 impl DomainName {
     /// Converts a [DomainName] to owned bytes
-    pub fn encode_dns_name(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut encoded: Vec<u8> = self
             .0
             .split('.')
@@ -40,7 +40,7 @@ impl DomainName {
     }
 
     /// Reads a [DomainName] from a slice of bytes
-    pub fn decode_dns_name(bytes: &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         use std::io::prelude::*;
 
         // buffers and metadata storage
@@ -112,22 +112,22 @@ mod tests {
 
     /// Tests encoding of "google.com"
     #[test]
-    fn qname_encoding() {
+    fn encode_dname() {
         let correct_bytes = b"\x06google\x03com\x00";
 
         let google_domain = DomainName::new("google.com");
-        let result_bytes = google_domain.encode_dns_name();
+        let result_bytes = google_domain.to_bytes();
 
         assert_eq!(result_bytes, correct_bytes);
     }
 
     /// Tests decoding of "google.com"
     #[test]
-    fn qname_decoding() -> Result<()> {
+    fn decode_dname() -> Result<()> {
         let correct_dname = DomainName::new("google.com");
         let google_domain_bytes = b"\x06google\x03com\x00";
 
-        let result_dname = DomainName::decode_dns_name(google_domain_bytes)?;
+        let result_dname = DomainName::from_bytes(google_domain_bytes)?;
 
         assert_eq!(result_dname, correct_dname);
 

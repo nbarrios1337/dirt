@@ -34,7 +34,7 @@ impl Record {
         let question_size = bytes
             .read_until(DomainName::TERMINATOR, &mut question_bytes)
             .map_err(RecordError::Io)?;
-        let qname = DomainName::decode_dns_name(&question_bytes).map_err(RecordError::Name)?;
+        let qname = DomainName::from_bytes(&question_bytes).map_err(RecordError::Name)?;
 
         // reusable buffer for u16 parsing
         let mut u16_buffer = [0u8; 2];
