@@ -3,13 +3,77 @@
 //! See more in [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034)
 //! and [RFC 1035 section 3.1](https://datatracker.ietf.org/doc/html/rfc1035#section-3.1)
 
-/// Domain names define a name of a node in requests and responses
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DomainName(String);
+use std::io::Read;
 
-impl DomainName {
+/// Labels are the individual nodes or components of a [DomainName]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Label(String);
+
+impl Label {
     /// The maximum size of a single label within a domain name
     pub const MAX_LABEL_SIZE: usize = 63;
+
+    fn into_bytes(self) -> Vec<u8> {
+        let size = self.0.len();
+        let mut buf = self.0.into_bytes();
+        buf.splice(0..0, [size as u8]);
+        buf
+    }
+
+    fn from_bytes(bytes: &mut &[u8]) -> LabelResult<Self> {
+        let mut size_slice = [0u8];
+        bytes.read_exact(&mut size_slice).map_err(LabelError::Io)?;
+        let size = size_slice[0];
+        // TODO check for msg compression (11 in high bits)
+
+        let mut buf = vec![0u8; size as usize];
+        bytes.read_exact(&mut buf).map_err(LabelError::Io)?;
+        let label = std::str::from_utf8(&buf)
+            .map_err(LabelError::Convert)?
+            .to_string();
+        Ok(Self(label))
+    }
+
+    fn from_bytes_with(bytes: &mut &[u8], dest: &mut [u8]) -> LabelResult<Self> {
+        let mut size_slice = [0u8];
+        bytes.read_exact(&mut size_slice).map_err(LabelError::Io)?;
+        let size = size_slice[0];
+        // TODO check for msg compression (11 in high bits)
+
+        let buf = &mut dest[..size as usize];
+        bytes.read_exact(buf).map_err(LabelError::Io)?;
+        let label = std::str::from_utf8(buf)
+            .map_err(LabelError::Convert)?
+            .to_string();
+        Ok(Self(label))
+    }
+}
+
+/// [LabelError] wraps the errors that may be encountered during byte decoding of a [Label]
+#[derive(Debug)]
+pub enum LabelError {
+    /// Stores an error encountered while using [std::io] traits and structs
+    Io(std::io::Error),
+    /// Stores an error encountered while converting from a sequence of [u8] to [String]
+    Convert(std::str::Utf8Error),
+}
+
+impl std::fmt::Display for LabelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LabelError::Io(io) => write!(f, "IO error: {io}"),
+            LabelError::Convert(convert) => write!(f, "String parsing error: {convert}"),
+        }
+    }
+}
+
+type LabelResult<T> = std::result::Result<T, LabelError>;
+
+/// Domain names define a name of a node in requests and responses
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DomainName(Vec<Label>);
+
+impl DomainName {
     /// The maximum number of octets that represent a domain name (i.e., the sum of all label octets and label lengths)
     pub const MAX_NAME_SIZE: usize = 255;
     pub const MAX_UDP_MSG_SIZE: usize = 512;
@@ -18,69 +82,46 @@ impl DomainName {
 }
 
 impl From<String> for DomainName {
-    fn from(value: String) -> Self {
-        DomainName(value)
+    fn from(mut value: String) -> Self {
+        // split will have an empty string if '.' at end
+        // leads to automatic dname delimter
+        value.push('.');
+        Self(
+            value
+                .split('.')
+                .map(|substr| Label(substr.to_string()))
+                .collect(),
+        )
     }
 }
 
 impl DomainName {
     /// Converts a [DomainName] to owned bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut encoded: Vec<u8> = self
-            .0
-            .split('.')
-            .map(|substr| (substr.len(), substr.to_string()))
-            .flat_map(|(len, mut substr)| {
-                substr.insert(0, len as u8 as char);
-                substr.into_bytes()
-            })
-            .collect();
-        encoded.push(0);
-        encoded
+        self.0
+            .iter()
+            .flat_map(|label| Label::into_bytes(label.clone()))
+            .collect()
     }
 
     /// Reads a [DomainName] from a slice of bytes
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        use std::io::prelude::*;
-
+    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
         // buffers and metadata storage
-        let mut bytes_cursor = std::io::Cursor::new(bytes);
-        let mut label_bytes_buffer = [0u8; Self::MAX_LABEL_SIZE];
-        let mut cur_label_length_slice = [0u8];
 
-        let mut labels: Vec<String> = Vec::new();
-
-        while (bytes_cursor.position() as usize) < bytes.len() {
-            // get length
-            bytes_cursor
-                .read_exact(&mut cur_label_length_slice)
-                .map_err(DomainNameError::Io)?;
-            let cur_label_length = u8::from_be_bytes(cur_label_length_slice);
-
-            // found the name delimiter
-            if cur_label_length == 0 {
-                break;
-            }
-
-            // set up exact buffer for label read
-            let cur_label_bytes = &mut label_bytes_buffer[0..cur_label_length as usize];
-            bytes_cursor
-                .read_exact(cur_label_bytes)
-                .map_err(DomainNameError::Io)?;
-
-            let cur_label = std::str::from_utf8(cur_label_bytes)
-                .map_err(DomainNameError::Parse)?
-                .to_string();
-
-            labels.push(cur_label);
+        let mut label_bytes_buffer = [0u8; Label::MAX_LABEL_SIZE];
+        let mut labels = Vec::new();
+        while !bytes.is_empty() {
+            let label = Label::from_bytes_with(bytes, &mut label_bytes_buffer)
+                .map_err(DomainNameError::Label)?;
+            labels.push(label);
         }
 
-        Ok(Self(labels.join(".")))
+        Ok(Self(labels))
     }
 
     /// Creates a new [DomainName]
     pub fn new(domain_name: &str) -> Self {
-        DomainName(domain_name.to_string())
+        DomainName::from(domain_name.to_string())
     }
 }
 
@@ -89,17 +130,14 @@ type Result<T> = std::result::Result<T, DomainNameError>;
 /// [DomainNameError] wraps the errors that may be encountered during byte decoding of a [DomainName]
 #[derive(Debug)]
 pub enum DomainNameError {
-    /// Stores an error encountered while using [std::io] traits and structs
-    Io(std::io::Error),
-    /// Stores an error encountered while using [std::convert] traits and structs
-    Parse(std::str::Utf8Error),
+    /// Stores an error encountered while [Label] parsing
+    Label(LabelError),
 }
 
 impl std::fmt::Display for DomainNameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DomainNameError::Io(io) => write!(f, "IO error: {io}"),
-            DomainNameError::Parse(parse) => write!(f, "String parsing error: {parse}"),
+            DomainNameError::Label(label) => write!(f, "Label parsing error: {label}"),
         }
     }
 }
@@ -127,7 +165,7 @@ mod tests {
         let correct_dname = DomainName::new("google.com");
         let google_domain_bytes = b"\x06google\x03com\x00";
 
-        let result_dname = DomainName::from_bytes(google_domain_bytes)?;
+        let result_dname = DomainName::from_bytes(&mut &google_domain_bytes[..])?;
 
         assert_eq!(result_dname, correct_dname);
 
