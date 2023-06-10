@@ -23,7 +23,7 @@ pub struct Record {
 
 impl Record {
     /// Reads a [Record] from a slice of bytes
-    pub fn from_bytes(mut bytes: &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
         use std::io::{BufRead, Read};
 
         // set up owned buffer for domain name parsing

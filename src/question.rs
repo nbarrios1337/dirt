@@ -76,7 +76,7 @@ impl Question {
     }
 
     /// Reads a [Question] from a slice of bytes
-    pub fn from_bytes(mut bytes: &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
         use std::io::{BufRead, Read};
 
         // set up owned buffer for domain name parsing
@@ -169,7 +169,7 @@ mod tests {
         };
 
         let bytes = b"\x06google\x03com\x00\x00\x01\x00\x01";
-        let result_question = Question::from_bytes(bytes)?;
+        let result_question = Question::from_bytes(&mut &bytes[..])?;
 
         assert_eq!(result_question.qname, correct_question.qname);
         assert_eq!(result_question.qtype, correct_question.qtype);

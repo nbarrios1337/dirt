@@ -95,6 +95,8 @@
 //!
 //! See more in [RFC 1035 section 4.1.1](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1)
 
+use std::io::Read;
+
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
 #[derive(Debug, Clone, Copy)] // TODO what other derives needed?
@@ -128,27 +130,42 @@ impl DnsHeader {
     }
 
     /// Reads a header from a slice of bytes
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        // header is only twelve bytes
-        let buf: [u8; 12] = bytes[..12]
-            .try_into()
-            .expect("Not enough bytes of header information");
+    pub fn from_bytes(bytes: &mut &[u8]) -> std::io::Result<Self> {
+        // reusable buffer for u16 parsing
+        let mut u16_buffer = [0u8; 2];
 
-        let id = u16::from_be_bytes(buf[0..2].try_into().unwrap());
-        let flags = u16::from_be_bytes(buf[2..4].try_into().unwrap());
-        let num_questions = u16::from_be_bytes(buf[4..6].try_into().unwrap());
-        let num_answers = u16::from_be_bytes(buf[6..8].try_into().unwrap());
-        let num_authorities = u16::from_be_bytes(buf[8..10].try_into().unwrap());
-        let num_additionals = u16::from_be_bytes(buf[10..12].try_into().unwrap());
+        // id parsing
+        bytes.read_exact(&mut u16_buffer)?;
+        let id = u16::from_be_bytes(u16_buffer);
 
-        Self {
+        // flags parsing
+        bytes.read_exact(&mut u16_buffer)?;
+        let flags = u16::from_be_bytes(u16_buffer);
+
+        // num_questions parsing
+        bytes.read_exact(&mut u16_buffer)?;
+        let num_questions = u16::from_be_bytes(u16_buffer);
+
+        // num_answers parsing
+        bytes.read_exact(&mut u16_buffer)?;
+        let num_answers = u16::from_be_bytes(u16_buffer);
+
+        // num_authorities parsing
+        bytes.read_exact(&mut u16_buffer)?;
+        let num_authorities = u16::from_be_bytes(u16_buffer);
+
+        // num_additionals parsing
+        bytes.read_exact(&mut u16_buffer)?;
+        let num_additionals = u16::from_be_bytes(u16_buffer);
+
+        Ok(Self {
             id,
             flags,
             num_questions,
             num_answers,
             num_authorities,
             num_additionals,
-        }
+        })
     }
 }
 
@@ -176,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn decode_header() {
+    fn decode_header() -> std::io::Result<()> {
         let test_bytes = vec![
             0x82, 0x98, // id
             0x01, 0x00, // flags
@@ -191,7 +208,7 @@ mod tests {
         // recursion desired
         let expected_flags: u16 = 1 << 8;
 
-        let result_header = DnsHeader::from_bytes(&test_bytes);
+        let result_header = DnsHeader::from_bytes(&mut &test_bytes[..])?;
 
         assert_eq!(result_header.id, expected_id);
         assert_eq!(result_header.flags, expected_flags);
@@ -199,5 +216,7 @@ mod tests {
         assert_eq!(result_header.num_answers, 0);
         assert_eq!(result_header.num_authorities, 0);
         assert_eq!(result_header.num_additionals, 0);
+
+        Ok(())
     }
 }
