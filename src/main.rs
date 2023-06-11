@@ -3,7 +3,6 @@ mod header;
 mod qclass;
 mod qtype;
 mod question;
-mod read_util;
 mod record;
 
 use rand::Rng;
