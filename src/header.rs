@@ -95,7 +95,7 @@
 //!
 //! See more in [RFC 1035 section 4.1.1](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1)
 
-use std::io::Read;
+use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
@@ -119,44 +119,29 @@ impl DnsHeader {
     /// Convert a header to owned bytes
     pub fn to_bytes(self) -> Vec<u8> {
         // 6 fields, 2 bytes each
-        let mut buf: Vec<u8> = Vec::with_capacity(6 * 2);
-        buf.extend_from_slice(&self.id.to_be_bytes());
-        buf.extend_from_slice(&self.flags.to_be_bytes());
-        buf.extend_from_slice(&self.num_questions.to_be_bytes());
-        buf.extend_from_slice(&self.num_answers.to_be_bytes());
-        buf.extend_from_slice(&self.num_authorities.to_be_bytes());
-        buf.extend_from_slice(&self.num_additionals.to_be_bytes());
+        let mut buf: Vec<u8> = vec![0u8; 6 * std::mem::size_of::<u16>()];
+        NetworkEndian::write_u16_into(
+            &[
+                self.id,
+                self.flags,
+                self.num_questions,
+                self.num_answers,
+                self.num_authorities,
+                self.num_additionals,
+            ],
+            &mut buf,
+        );
         buf
     }
 
     /// Reads a header from a slice of bytes
-    pub fn from_bytes(bytes: &mut &[u8]) -> std::io::Result<Self> {
-        // reusable buffer for u16 parsing
-        let mut u16_buffer = [0u8; 2];
-
-        // id parsing
-        bytes.read_exact(&mut u16_buffer)?;
-        let id = u16::from_be_bytes(u16_buffer);
-
-        // flags parsing
-        bytes.read_exact(&mut u16_buffer)?;
-        let flags = u16::from_be_bytes(u16_buffer);
-
-        // num_questions parsing
-        bytes.read_exact(&mut u16_buffer)?;
-        let num_questions = u16::from_be_bytes(u16_buffer);
-
-        // num_answers parsing
-        bytes.read_exact(&mut u16_buffer)?;
-        let num_answers = u16::from_be_bytes(u16_buffer);
-
-        // num_authorities parsing
-        bytes.read_exact(&mut u16_buffer)?;
-        let num_authorities = u16::from_be_bytes(u16_buffer);
-
-        // num_additionals parsing
-        bytes.read_exact(&mut u16_buffer)?;
-        let num_additionals = u16::from_be_bytes(u16_buffer);
+    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
+        let mut buf = [0u16; 6];
+        bytes
+            .read_u16_into::<NetworkEndian>(&mut buf)
+            .map_err(HeaderError::Io)?;
+        let [id, flags, num_questions, num_answers, num_authorities, num_additionals]: [u16; 6] =
+            buf;
 
         Ok(Self {
             id,
@@ -169,9 +154,18 @@ impl DnsHeader {
     }
 }
 
+/// [HeaderError] wraps the errors that may be encountered during byte decoding of a [DnsHeader]
+#[derive(Debug)]
+pub enum HeaderError {
+    /// Stores an error encountered while using [std::io] traits and structs
+    Io(std::io::Error),
+}
+
+type Result<T> = std::result::Result<T, HeaderError>;
+
 #[cfg(test)]
 mod tests {
-    use super::DnsHeader;
+    use super::*;
 
     #[test]
     fn encode_header() {
@@ -193,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn decode_header() -> std::io::Result<()> {
+    fn decode_header() -> Result<()> {
         let test_bytes = vec![
             0x82, 0x98, // id
             0x01, 0x00, // flags
