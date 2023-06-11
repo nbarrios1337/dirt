@@ -5,6 +5,8 @@
 
 use std::io::Read;
 
+use byteorder::ReadBytesExt;
+
 /// Labels are the individual nodes or components of a [DomainName]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Label(String);
@@ -21,9 +23,7 @@ impl Label {
     }
 
     fn from_bytes(bytes: &mut &[u8]) -> LabelResult<Self> {
-        let mut size_slice = [0u8];
-        bytes.read_exact(&mut size_slice).map_err(LabelError::Io)?;
-        let size = size_slice[0];
+        let size = bytes.read_u8().map_err(LabelError::Io)?;
         // TODO check for msg compression (11 in high bits)
 
         let mut buf = vec![0u8; size as usize];
@@ -35,9 +35,7 @@ impl Label {
     }
 
     fn from_bytes_with(bytes: &mut &[u8], dest: &mut [u8]) -> LabelResult<Self> {
-        let mut size_slice = [0u8];
-        bytes.read_exact(&mut size_slice).map_err(LabelError::Io)?;
-        let size = size_slice[0];
+        let size = bytes.read_u8().map_err(LabelError::Io)?;
         // TODO check for msg compression (11 in high bits)
 
         let buf = &mut dest[..size as usize];
