@@ -34,6 +34,8 @@
 //! ```
 //!
 
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
+
 use crate::{
     dname::{DomainName, DomainNameError},
     qclass::QClass,
@@ -66,18 +68,15 @@ impl Question {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = self.qname.to_bytes();
 
-        let qtype_u16: u16 = self.qtype.into();
-        buf.extend_from_slice(&qtype_u16.to_be_bytes());
-
-        let qclass_u16: u16 = self.qclass.into();
-        buf.extend_from_slice(&qclass_u16.to_be_bytes());
+        buf.write_u16::<NetworkEndian>(self.qtype.into()).unwrap();
+        buf.write_u16::<NetworkEndian>(self.qclass.into()).unwrap();
 
         buf
     }
 
     /// Reads a [Question] from a slice of bytes
     pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
-        use std::io::{BufRead, Read};
+        use std::io::BufRead;
 
         // set up owned buffer for domain name parsing
         let mut question_bytes = Vec::with_capacity(DomainName::MAX_NAME_SIZE);
@@ -90,21 +89,19 @@ impl Question {
         let qname =
             DomainName::from_bytes(&mut &question_bytes[..]).map_err(QuestionError::Name)?;
 
-        // reusable buffer for u16 parsing
-        let mut u16_buffer = [0u8; 2];
+        let qtype = QType::try_from(
+            bytes
+                .read_u16::<NetworkEndian>()
+                .map_err(QuestionError::Io)?,
+        )
+        .map_err(QuestionError::Type)?;
 
-        // qtype parsing
-        bytes
-            .read_exact(&mut u16_buffer)
-            .map_err(QuestionError::Io)?;
-        let qtype = QType::try_from(u16::from_be_bytes(u16_buffer)).map_err(QuestionError::Type)?;
-
-        // qclass parsing
-        bytes
-            .read_exact(&mut u16_buffer)
-            .map_err(QuestionError::Io)?;
-        let qclass =
-            QClass::try_from(u16::from_be_bytes(u16_buffer)).map_err(QuestionError::Class)?;
+        let qclass = QClass::try_from(
+            bytes
+                .read_u16::<NetworkEndian>()
+                .map_err(QuestionError::Io)?,
+        )
+        .map_err(QuestionError::Class)?;
 
         Ok(Self {
             qname,
