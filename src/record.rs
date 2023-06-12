@@ -1,5 +1,7 @@
 use std::io::{Cursor, Read};
 
+use byteorder::{NetworkEndian, ReadBytesExt};
+
 use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// A resource record
@@ -26,31 +28,18 @@ pub struct Record {
 impl Record {
     /// Reads a [Record] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
-        // domain name parsing
         let qname = DomainName::from_bytes(bytes).map_err(RecordError::Name)?;
 
-        // reusable buffer for u16 parsing
-        let mut u16_buffer = [0u8; 2];
-        let mut u32_buffer = [0u8; 4];
+        let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>().map_err(RecordError::Io)?)
+            .map_err(RecordError::Type)?;
 
-        // qtype parsing
-        bytes.read_exact(&mut u16_buffer).map_err(RecordError::Io)?;
-        let qtype = QType::try_from(u16::from_be_bytes(u16_buffer)).map_err(RecordError::Type)?;
+        let qclass = QClass::try_from(bytes.read_u16::<NetworkEndian>().map_err(RecordError::Io)?)
+            .map_err(RecordError::Class)?;
 
-        // qclass parsing
-        bytes.read_exact(&mut u16_buffer).map_err(RecordError::Io)?;
-        let qclass =
-            QClass::try_from(u16::from_be_bytes(u16_buffer)).map_err(RecordError::Class)?;
+        let ttl = bytes.read_u32::<NetworkEndian>().map_err(RecordError::Io)?;
 
-        // ttl parsing
-        bytes.read_exact(&mut u32_buffer).map_err(RecordError::Io)?;
-        let ttl = u32::from_be_bytes(u32_buffer);
+        let data_length = bytes.read_u16::<NetworkEndian>().map_err(RecordError::Io)?;
 
-        // data length parsing
-        bytes.read_exact(&mut u16_buffer).map_err(RecordError::Io)?;
-        let data_length = u16::from_be_bytes(u16_buffer);
-
-        // rdata parsing
         let mut data = vec![0; data_length as usize];
         bytes.read_exact(&mut data).map_err(RecordError::Io)?;
 
