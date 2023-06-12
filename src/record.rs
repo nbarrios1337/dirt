@@ -1,3 +1,5 @@
+use std::io::{Cursor, Read};
+
 use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// A resource record
@@ -23,18 +25,9 @@ pub struct Record {
 
 impl Record {
     /// Reads a [Record] from a slice of bytes
-    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
-        use std::io::{BufRead, Read};
-
-        // set up owned buffer for domain name parsing
-        let mut question_bytes = Vec::with_capacity(DomainName::MAX_NAME_SIZE);
-
-        // TODO use for question size?
-        // Read all the name-related bytes (delimited by zero octet)
-        let question_size = bytes
-            .read_until(DomainName::TERMINATOR, &mut question_bytes)
-            .map_err(RecordError::Io)?;
-        let qname = DomainName::from_bytes(&mut &question_bytes[..]).map_err(RecordError::Name)?;
+    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
+        // domain name parsing
+        let qname = DomainName::from_bytes(bytes).map_err(RecordError::Name)?;
 
         // reusable buffer for u16 parsing
         let mut u16_buffer = [0u8; 2];

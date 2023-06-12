@@ -95,6 +95,8 @@
 //!
 //! See more in [RFC 1035 section 4.1.1](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1)
 
+use std::io::Cursor;
+
 use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 
 /// The header includes fields that specify which of the remaining sections are present,
@@ -135,7 +137,7 @@ impl DnsHeader {
     }
 
     /// Reads a header from a slice of bytes
-    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         let mut buf = [0u16; 6];
         bytes
             .read_u16_into::<NetworkEndian>(&mut buf)
@@ -202,7 +204,7 @@ mod tests {
         // recursion desired
         let expected_flags: u16 = 1 << 8;
 
-        let result_header = DnsHeader::from_bytes(&mut &test_bytes[..])?;
+        let result_header = DnsHeader::from_bytes(&mut Cursor::new(&test_bytes))?;
 
         assert_eq!(result_header.id, expected_id);
         assert_eq!(result_header.flags, expected_flags);

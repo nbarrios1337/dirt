@@ -34,6 +34,8 @@
 //! ```
 //!
 
+use std::io::Cursor;
+
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
@@ -75,19 +77,9 @@ impl Question {
     }
 
     /// Reads a [Question] from a slice of bytes
-    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
-        use std::io::BufRead;
-
-        // set up owned buffer for domain name parsing
-        let mut question_bytes = Vec::with_capacity(DomainName::MAX_NAME_SIZE);
-
-        // TODO use for question size?
-        // Read all the name-related bytes (delimited by zero octet)
-        let question_size = bytes
-            .read_until(DomainName::TERMINATOR, &mut question_bytes)
-            .map_err(QuestionError::Io)?;
-        let qname =
-            DomainName::from_bytes(&mut &question_bytes[..]).map_err(QuestionError::Name)?;
+    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
+        // domain name parsing
+        let qname = DomainName::from_bytes(bytes).map_err(QuestionError::Name)?;
 
         let qtype = QType::try_from(
             bytes
@@ -165,8 +157,8 @@ mod tests {
             qtype: QType::A,
         };
 
-        let bytes = b"\x06google\x03com\x00\x00\x01\x00\x01";
-        let result_question = Question::from_bytes(&mut &bytes[..])?;
+        let mut bytes = Cursor::new(&b"\x06google\x03com\x00\x00\x01\x00\x01"[..]);
+        let result_question = Question::from_bytes(&mut bytes)?;
 
         assert_eq!(result_question.qname, correct_question.qname);
         assert_eq!(result_question.qtype, correct_question.qtype);

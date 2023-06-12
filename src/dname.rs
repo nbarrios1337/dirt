@@ -3,7 +3,7 @@
 //! See more in [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034)
 //! and [RFC 1035 section 3.1](https://datatracker.ietf.org/doc/html/rfc1035#section-3.1)
 
-use std::io::Read;
+use std::io::{Cursor, Read};
 
 use byteorder::ReadBytesExt;
 
@@ -22,28 +22,28 @@ impl Label {
         buf
     }
 
-    fn from_bytes(bytes: &mut &[u8]) -> LabelResult<Self> {
-        let size = bytes.read_u8().map_err(LabelError::Io)?;
-        // TODO check for msg compression (11 in high bits)
-
-        let mut buf = vec![0u8; size as usize];
-        bytes.read_exact(&mut buf).map_err(LabelError::Io)?;
-        let label = std::str::from_utf8(&buf)
+    fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
+        bytes.read_exact(dest).map_err(LabelError::Io)?;
+        let label = std::str::from_utf8(dest)
             .map_err(LabelError::Convert)?
             .to_string();
         Ok(Self(label))
     }
 
-    fn from_bytes_with(bytes: &mut &[u8], dest: &mut [u8]) -> LabelResult<Self> {
+    fn from_bytes(bytes: &mut Cursor<&[u8]>) -> LabelResult<Self> {
+        let size = bytes.read_u8().map_err(LabelError::Io)?;
+        // TODO check for msg compression (11 in high bits)
+
+        let mut buf = vec![0u8; size as usize];
+        Self::read_label(bytes, &mut buf)
+    }
+
+    fn from_bytes_with(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
         let size = bytes.read_u8().map_err(LabelError::Io)?;
         // TODO check for msg compression (11 in high bits)
 
         let buf = &mut dest[..size as usize];
-        bytes.read_exact(buf).map_err(LabelError::Io)?;
-        let label = std::str::from_utf8(buf)
-            .map_err(LabelError::Convert)?
-            .to_string();
-        Ok(Self(label))
+        Self::read_label(bytes, buf)
     }
 }
 
@@ -103,15 +103,23 @@ impl DomainName {
     }
 
     /// Reads a [DomainName] from a slice of bytes
-    pub fn from_bytes(bytes: &mut &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         // buffers and metadata storage
 
         let mut label_bytes_buffer = [0u8; Label::MAX_LABEL_SIZE];
         let mut labels = Vec::new();
-        while !bytes.is_empty() {
+
+        while bytes.position() < bytes.get_ref().len() as u64 {
             let label = Label::from_bytes_with(bytes, &mut label_bytes_buffer)
                 .map_err(DomainNameError::Label)?;
-            labels.push(label);
+
+            // Check for name delimiter
+            if !label.0.is_empty() {
+                labels.push(label);
+            } else {
+                labels.push(label);
+                break;
+            }
         }
 
         Ok(Self(labels))
@@ -161,9 +169,9 @@ mod tests {
     #[test]
     fn decode_dname() -> Result<()> {
         let correct_dname = DomainName::new("google.com");
-        let google_domain_bytes = b"\x06google\x03com\x00";
+        let mut google_domain_bytes = Cursor::new(&b"\x06google\x03com\x00"[..]);
 
-        let result_dname = DomainName::from_bytes(&mut &google_domain_bytes[..])?;
+        let result_dname = DomainName::from_bytes(&mut google_domain_bytes)?;
 
         assert_eq!(result_dname, correct_dname);
 
