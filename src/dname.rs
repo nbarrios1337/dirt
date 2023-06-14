@@ -64,7 +64,7 @@ impl std::fmt::Display for LabelError {
 type LabelResult<T> = std::result::Result<T, LabelError>;
 
 /// Domain names define a name of a node in requests and responses
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DomainName(Vec<Label>);
 
 impl DomainName {
@@ -73,6 +73,14 @@ impl DomainName {
     pub const MAX_UDP_MSG_SIZE: usize = 512;
     /// a domain name is terminated by a length byte of zero
     pub const TERMINATOR: u8 = 0;
+}
+
+impl std::fmt::Debug for DomainName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("DomainName")
+            .field(&String::from(self.clone()))
+            .finish()
+    }
 }
 
 impl From<String> for DomainName {
