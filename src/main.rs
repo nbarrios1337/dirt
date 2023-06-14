@@ -5,12 +5,15 @@ mod qtype;
 mod question;
 mod record;
 
+use std::io::Cursor;
+
 use rand::Rng;
 
 use dname::DomainName;
 use header::DnsHeader;
 use qtype::QType;
 use question::Question;
+use record::Record;
 
 pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();
@@ -71,6 +74,17 @@ fn main() -> std::io::Result<()> {
             eprintln!("No response returned for query {query_id} -- {e}");
         }
     }
+
+    let mut recv_reader = Cursor::new(&recv_buf[..]);
+
+    let recv_header = DnsHeader::from_bytes(&mut recv_reader);
+    dbg!(recv_header.unwrap());
+
+    let recv_question = Question::from_bytes(&mut recv_reader);
+    dbg!(recv_question.unwrap());
+
+    let recv_rec = Record::from_bytes(&mut recv_reader);
+    dbg!(recv_rec.unwrap());
 
     Ok(())
 }
