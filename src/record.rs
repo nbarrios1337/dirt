@@ -5,7 +5,7 @@ use byteorder::{NetworkEndian, ReadBytesExt};
 use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// A resource record
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record {
     /// a domain name to which this resource record pertains.
     name: DomainName,
@@ -17,8 +17,6 @@ pub struct Record {
     ///
     /// Zero values are interpreted to mean that the RR can only be used for the transaction in progress, and should not be cached.
     time_to_live: u32,
-    /// specifies the length in octets of the RDATA field.
-    data_length: u16,
     /// a variable length string of octets that describes the resource. The format of this information varies according to the TYPE and CLASS of the resource record.
     ///
     /// For example, the if the TYPE is A and the CLASS is IN, the RDATA field is a 4 octet ARPA Internet address.
@@ -48,7 +46,6 @@ impl Record {
             qtype,
             class: qclass,
             time_to_live: ttl,
-            data_length,
             rdata: data,
         })
     }
@@ -67,4 +64,31 @@ pub enum RecordError {
     Type(num_enum::TryFromPrimitiveError<QType>),
     /// Stores an error encountered while parsin the [QClass]
     Class(num_enum::TryFromPrimitiveError<QClass>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_record() -> Result<()> {
+        let record_bytes = b"`V\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x03www\x07example\x03com\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00R\x9b\x00\x04]\xb8\xd8\"";
+        let correct_record = Record {
+            name: DomainName::new("www.example.com"),
+            qtype: QType::A,
+            class: QClass::IN,
+            time_to_live: 21147,
+            rdata: b"]\xb8\xd8\"".to_vec(),
+        };
+
+        let mut rec_bytes_reader = Cursor::new(&record_bytes[..]);
+        let hdr = crate::header::DnsHeader::from_bytes(&mut rec_bytes_reader).unwrap();
+        eprintln!("{hdr:?}");
+        let q = crate::question::Question::from_bytes(&mut rec_bytes_reader).unwrap();
+        eprintln!("{q:?}");
+        let result_record = Record::from_bytes(&mut rec_bytes_reader)?;
+
+        assert_eq!(result_record, correct_record);
+        Ok(())
+    }
 }
