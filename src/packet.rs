@@ -1,14 +1,14 @@
 use std::io::Cursor;
 
 use crate::{
-    header::{DnsHeader, HeaderError},
+    header::{Header, HeaderError},
     question::{Question, QuestionError},
     record::{Record, RecordError},
 };
 
 #[derive(Debug)]
 pub struct Packet {
-    header: DnsHeader,
+    header: Header,
     questions: Vec<Question>,
     answers: Vec<Record>,
     authorities: Vec<Record>,
@@ -17,7 +17,7 @@ pub struct Packet {
 
 impl Packet {
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> PacketResult<Self> {
-        let header = DnsHeader::from_bytes(bytes).map_err(PacketError::Header)?;
+        let header = Header::from_bytes(bytes).map_err(PacketError::Header)?;
 
         let questions: Vec<Question> =
             std::iter::repeat_with(|| Question::from_bytes(bytes).map_err(PacketError::Question))

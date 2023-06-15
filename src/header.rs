@@ -102,7 +102,7 @@ use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
 #[derive(Debug, Clone, Copy)] // TODO what other derives needed?
-pub struct DnsHeader {
+pub struct Header {
     /// A 16 bit identifier assigned by the program that generates any kind of query.
     /// This identifier is copied the corresponding reply and can be used by the requester to match up replies to outstanding queries.
     pub id: u16,
@@ -117,7 +117,7 @@ pub struct DnsHeader {
     pub num_additionals: u16,
 }
 
-impl DnsHeader {
+impl Header {
     /// Convert a header to owned bytes
     pub fn to_bytes(self) -> Vec<u8> {
         // 6 fields, 2 bytes each
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn encode_header() {
-        let header = DnsHeader {
+        let header = Header {
             id: 0x1314,
             flags: 0,
             num_questions: 1,
@@ -214,7 +214,7 @@ mod tests {
         // recursion desired
         let expected_flags: u16 = 1 << 8;
 
-        let result_header = DnsHeader::from_bytes(&mut Cursor::new(&test_bytes))?;
+        let result_header = Header::from_bytes(&mut Cursor::new(&test_bytes))?;
 
         assert_eq!(result_header.id, expected_id);
         assert_eq!(result_header.flags, expected_flags);

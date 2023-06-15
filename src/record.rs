@@ -95,7 +95,7 @@ mod tests {
         };
 
         let mut rec_bytes_reader = Cursor::new(&record_bytes[..]);
-        let hdr = crate::header::DnsHeader::from_bytes(&mut rec_bytes_reader).unwrap();
+        let hdr = crate::header::Header::from_bytes(&mut rec_bytes_reader).unwrap();
         eprintln!("{hdr:?}");
         let q = crate::question::Question::from_bytes(&mut rec_bytes_reader).unwrap();
         eprintln!("{q:?}");

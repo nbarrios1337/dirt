@@ -11,7 +11,7 @@ use std::io::Cursor;
 use rand::Rng;
 
 use dname::DomainName;
-use header::DnsHeader;
+use header::Header;
 use packet::Packet;
 use qtype::QType;
 use question::Question;
@@ -21,7 +21,7 @@ pub fn build_query(domain_name: &str, record_type: u16) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();
     // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
     const RECURSION_DESIRED: u16 = 1 << 8;
-    let header = DnsHeader {
+    let header = Header {
         id,
         flags: RECURSION_DESIRED,
         num_questions: 1,
