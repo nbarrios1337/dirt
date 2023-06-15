@@ -8,11 +8,11 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Packet {
-    header: Header,
-    questions: Vec<Question>,
-    answers: Vec<Record>,
-    authorities: Vec<Record>,
-    additionals: Vec<Record>,
+    pub header: Header,
+    pub questions: Vec<Question>,
+    pub answers: Vec<Record>,
+    pub authorities: Vec<Record>,
+    pub additionals: Vec<Record>,
 }
 
 impl Packet {
