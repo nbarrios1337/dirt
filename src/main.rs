@@ -1,5 +1,6 @@
 mod dname;
 mod header;
+mod packet;
 mod qclass;
 mod qtype;
 mod question;
@@ -11,6 +12,7 @@ use rand::Rng;
 
 use dname::DomainName;
 use header::DnsHeader;
+use packet::Packet;
 use qtype::QType;
 use question::Question;
 use record::Record;
@@ -77,14 +79,8 @@ fn main() -> std::io::Result<()> {
 
     let mut recv_reader = Cursor::new(&recv_buf[..]);
 
-    let recv_header = DnsHeader::from_bytes(&mut recv_reader);
-    dbg!(recv_header.unwrap());
-
-    let recv_question = Question::from_bytes(&mut recv_reader);
-    dbg!(recv_question.unwrap());
-
-    let recv_rec = Record::from_bytes(&mut recv_reader);
-    dbg!(recv_rec.unwrap());
+    let pkt = Packet::from_bytes(&mut recv_reader);
+    dbg!(pkt);
 
     Ok(())
 }
