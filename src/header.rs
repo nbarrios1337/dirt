@@ -163,6 +163,16 @@ pub enum HeaderError {
     Io(std::io::Error),
 }
 
+impl std::fmt::Display for HeaderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HeaderError::Io(e) => write!(f, "Header parsing error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for HeaderError {}
+
 type Result<T> = std::result::Result<T, HeaderError>;
 
 #[cfg(test)]

@@ -66,6 +66,19 @@ pub enum RecordError {
     Class(num_enum::TryFromPrimitiveError<QClass>),
 }
 
+impl std::fmt::Display for RecordError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecordError::Io(e) => write!(f, "IO parsing error: {e}"),
+            RecordError::Name(e) => write!(f, "DomainName parsing error: {e}"),
+            RecordError::Type(e) => write!(f, "Type parsing error: {e}"),
+            RecordError::Class(e) => write!(f, "Class parsing error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for RecordError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
