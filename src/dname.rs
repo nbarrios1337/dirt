@@ -96,15 +96,12 @@ impl From<String> for DomainName {
 
 impl From<DomainName> for String {
     fn from(value: DomainName) -> Self {
-        let dname = value
+        value
             .0
             .into_iter()
             .map(|label| label.0)
-            .reduce(|acc, label_str| acc + "." + &label_str);
-        match dname {
-            Some(str) => str,
-            None => "".to_string(),
-        }
+            .reduce(|acc, label_str| acc + "." + &label_str)
+            .unwrap_or_default()
     }
 }
 
@@ -125,11 +122,7 @@ impl DomainName {
         size & 0b1100_0000 == 0b1100_0000
     }
 
-    fn read_compressed_label(
-        bytes: &mut Cursor<&[u8]>,
-        labels: &mut Vec<Label>,
-        size: u8,
-    ) -> Result<()> {
+    fn read_compressed_label(bytes: &mut Cursor<&[u8]>, size: u8) -> Result<Vec<Label>> {
         // get pointed-to name
         let second = bytes.read_u8().map_err(DomainNameError::Io)?;
         let name_pos = u16::from_be_bytes([size & 0b0011_1111, second]);
@@ -143,14 +136,11 @@ impl DomainName {
             .map_err(DomainNameError::Io)?;
         let name = DomainName::from_bytes(bytes)?;
 
-        // concat to existing labels
-        labels.extend(name.0);
-
         // reset to current pos
         bytes
             .seek(SeekFrom::Start(old_pos))
             .map_err(DomainNameError::Io)?;
-        Ok(())
+        Ok(name.0)
     }
 
     /// Reads a [DomainName] from a slice of bytes
@@ -165,7 +155,7 @@ impl DomainName {
 
             match size {
                 size if Self::is_compressed(size) => {
-                    Self::read_compressed_label(bytes, &mut labels, size)?;
+                    labels.extend(Self::read_compressed_label(bytes, size)?);
                     break;
                 }
                 DomainName::TERMINATOR => {
