@@ -1,5 +1,6 @@
 [package]
-name = "dns-in-one-weekend"
+name = "dirc"
+description = "DNS Information Resolving Client"
 version = "0.1.0"
 edition = "2021"
 
