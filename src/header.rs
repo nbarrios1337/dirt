@@ -119,7 +119,7 @@ pub struct Header {
 
 impl Header {
     /// Convert a header to owned bytes
-    pub fn to_bytes(self) -> Vec<u8> {
+    pub fn into_bytes(self) -> Vec<u8> {
         // 6 fields, 2 bytes each
         let mut buf: Vec<u8> = vec![0u8; 6 * std::mem::size_of::<u16>()];
         NetworkEndian::write_u16_into(
@@ -190,7 +190,7 @@ mod tests {
             num_additionals: 0,
         };
 
-        let header_bytes = header.to_bytes();
+        let header_bytes = header.into_bytes();
 
         let correct_bytes: Vec<u8> =
             vec![0x13, 0x14, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0];

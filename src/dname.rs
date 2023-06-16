@@ -107,12 +107,8 @@ impl From<DomainName> for String {
 
 impl DomainName {
     /// Converts a [DomainName] to owned bytes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut val: Vec<u8> = self
-            .0
-            .iter()
-            .flat_map(|label| Label::into_bytes(label.clone()))
-            .collect();
+    pub fn into_bytes(self) -> Vec<u8> {
+        let mut val: Vec<u8> = self.0.into_iter().flat_map(Label::into_bytes).collect();
         // name bytes have zero octet delimiter
         val.push(DomainName::TERMINATOR);
         val
@@ -210,7 +206,7 @@ mod tests {
         let correct_bytes = b"\x06google\x03com\x00";
 
         let google_domain = DomainName::new("google.com");
-        let result_bytes = google_domain.to_bytes();
+        let result_bytes = google_domain.into_bytes();
 
         assert_eq!(result_bytes, correct_bytes);
     }
