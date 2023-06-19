@@ -1,4 +1,4 @@
-# `dirc` - DNS Information Resolving Client
+# `dirt` - DNS Information Resolving Tool
 
 An in-progress DNS resolver written in Rust, based on [Julia Evan's "Implement DNS in a weekend" guide](https://implement-dns.wizardzines.com/index.html).
 
