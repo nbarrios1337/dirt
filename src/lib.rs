@@ -32,8 +32,8 @@ pub fn build_query(domain_name: &str, record_type: QType) -> Vec<u8> {
         qtype: record_type,
     };
 
-    let mut header_bytes = header.to_bytes();
-    let mut question_bytes = question.to_bytes();
+    let mut header_bytes = header.into_bytes();
+    let mut question_bytes = question.into_bytes();
     let mut buf = Vec::with_capacity(header_bytes.len() + question_bytes.len());
     buf.append(&mut header_bytes);
     buf.append(&mut question_bytes);

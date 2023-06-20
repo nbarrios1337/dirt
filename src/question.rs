@@ -67,8 +67,8 @@ pub struct Question {
 
 impl Question {
     /// Converts a [Question] to owned bytes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buf = self.qname.to_bytes();
+    pub fn into_bytes(self) -> Vec<u8> {
+        let mut buf = self.qname.into_bytes();
 
         buf.write_u16::<NetworkEndian>(self.qtype.into()).unwrap();
         buf.write_u16::<NetworkEndian>(self.qclass.into()).unwrap();
@@ -144,7 +144,7 @@ mod tests {
         };
 
         let correct_bytes = b"\x06google\x03com\x00\x00\x01\x00\x01";
-        let result_bytes = question.to_bytes();
+        let result_bytes = question.into_bytes();
 
         assert_eq!(result_bytes, correct_bytes);
     }
