@@ -99,6 +99,8 @@ use std::io::Cursor;
 
 use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 
+use thiserror::Error;
+
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
 #[derive(Debug, Clone, Copy)] // TODO what other derives needed?
@@ -157,21 +159,12 @@ impl Header {
 }
 
 /// [HeaderError] wraps the errors that may be encountered during byte decoding of a [DnsHeader]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum HeaderError {
     /// Stores an error encountered while using [std::io] traits and structs
-    Io(std::io::Error),
+    #[error("Failed to parse header data")]
+    Io(#[from] std::io::Error),
 }
-
-impl std::fmt::Display for HeaderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HeaderError::Io(e) => write!(f, "Header parsing error: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for HeaderError {}
 
 type Result<T> = std::result::Result<T, HeaderError>;
 
