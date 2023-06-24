@@ -40,16 +40,20 @@ pub fn build_query(domain_name: &str, record_type: QType) -> Vec<u8> {
     buf
 }
 
+/// Returns a ready-to-use UDP socket connected to the given address
+fn setup_udp_socket_to(
+    dns_server_addr: impl std::net::ToSocketAddrs,
+) -> Result<UdpSocket, std::io::Error> {
+    let udp_sock = UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?;
+    udp_sock.connect(dns_server_addr)?;
+    Ok(udp_sock)
+}
+
 pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, packet::PacketError> {
     let query = build_query(domain_name, qtype::QType::A);
 
     // connection setup
-    let udp_sock = UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
-        .unwrap_or_else(|e| panic!("Couldn't bind to local address -- {e}"));
-    let dns_server_addr = "8.8.8.8:53";
-    udp_sock
-        .connect(dns_server_addr)
-        .unwrap_or_else(|e| panic!("Couldn't connect to DNS Server @ {dns_server_addr} -- {e}"));
+    let udp_sock = setup_udp_socket_to("8.8.8.8:53").expect("Failed to setup UDP socket");
 
     // query request
     udp_sock.send(&query).expect("Couldn't send query");
@@ -105,28 +109,12 @@ mod tests {
         Ok(())
     }
 
-    /// Returns a ready-to-use UDP socket connected to Google's DNS server
-    fn socket_setup() -> std::net::UdpSocket {
-        // Google DNS server address
-        let dns_server_addr = "8.8.8.8:53";
-
-        // Bind to any available local address and port
-        let udp_sock = std::net::UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
-            .unwrap_or_else(|e| panic!("Couldn't bind to local address -- {e}"));
-
-        udp_sock.connect(dns_server_addr).unwrap_or_else(|e| {
-            panic!("Couldn't connect to DNS Server @ {dns_server_addr} -- {e}")
-        });
-
-        udp_sock
-    }
-
     #[test]
     fn test_send_query() -> std::io::Result<()> {
         let query_bytes = build_query("www.example.com", qtype::QType::A);
 
         // connection setup
-        let udp_sock = socket_setup();
+        let udp_sock = setup_udp_socket_to("8.8.8.8:53").expect("Failed to setup UDP socket");
 
         // query request
         udp_sock.send(&query_bytes).expect("Couldn't send query");
