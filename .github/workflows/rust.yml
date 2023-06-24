@@ -21,6 +21,7 @@ jobs:
 
   test:
     name: Test Suite
+    needs: [check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -36,11 +37,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
 
   lint:
     name: Clippy
+    needs: [check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
