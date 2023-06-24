@@ -1,8 +1,13 @@
 use std::io::{Cursor, Read};
 
 use byteorder::{NetworkEndian, ReadBytesExt};
+use thiserror::Error;
 
-use crate::{dname::DomainName, qclass::QClass, qtype::QType};
+use crate::{
+    dname::{DomainName, DomainNameError},
+    qclass::QClass,
+    qtype::QType,
+};
 
 /// A resource record
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,30 +59,21 @@ impl Record {
 type Result<T> = std::result::Result<T, RecordError>;
 
 /// [RecordError] wraps the errors that may be encountered during byte decoding of a [Record]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RecordError {
     /// Stores an error encountered while using [std::io] traits and structs
-    Io(std::io::Error),
+    #[error("Failed to parse question data")]
+    Io(#[from] std::io::Error),
     /// Stores an error encountered while parsing the [DomainName]
-    Name(crate::dname::DomainNameError),
+    #[error(transparent)]
+    Name(#[from] DomainNameError),
     /// Stores an error encountered while parsin the [QType]
-    Type(num_enum::TryFromPrimitiveError<QType>),
+    #[error("Failed to convert primitive to QType")]
+    Type(#[from] num_enum::TryFromPrimitiveError<QType>),
     /// Stores an error encountered while parsin the [QClass]
-    Class(num_enum::TryFromPrimitiveError<QClass>),
+    #[error("Failed to convert primitive to QClass")]
+    Class(#[from] num_enum::TryFromPrimitiveError<QClass>),
 }
-
-impl std::fmt::Display for RecordError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RecordError::Io(e) => write!(f, "IO parsing error: {e}"),
-            RecordError::Name(e) => write!(f, "DomainName parsing error: {e}"),
-            RecordError::Type(e) => write!(f, "Type parsing error: {e}"),
-            RecordError::Class(e) => write!(f, "Class parsing error: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for RecordError {}
 
 #[cfg(test)]
 mod tests {
