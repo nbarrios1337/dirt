@@ -172,24 +172,15 @@ impl DomainName {
 type Result<T> = std::result::Result<T, DomainNameError>;
 
 /// [DomainNameError] wraps the errors that may be encountered during byte decoding of a [DomainName]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DomainNameError {
     /// Stores an error encountered while [Label] parsing
+    #[error(transparent)]
     Label(LabelError),
     /// Stores an error encountered while using [std::io] traits and structs
-    Io(std::io::Error),
+    #[error("Failed to parse domain name data")]
+    Io(#[from] std::io::Error),
 }
-
-impl std::fmt::Display for DomainNameError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Label(label) => write!(f, "Label parsing error: {label}"),
-            Self::Io(io) => write!(f, "IO error: {io}"),
-        }
-    }
-}
-
-impl std::error::Error for DomainNameError {}
 
 #[cfg(test)]
 mod tests {
