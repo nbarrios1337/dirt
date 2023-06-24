@@ -37,6 +37,7 @@
 use std::io::Cursor;
 
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
+use thiserror::Error;
 
 use crate::{
     dname::{DomainName, DomainNameError},
@@ -106,30 +107,21 @@ impl Question {
 type Result<T> = std::result::Result<T, QuestionError>;
 
 /// [QuestionError] wraps the errors that may be encountered during byte decoding of a [Question]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum QuestionError {
     /// Stores an error encountered while using [std::io] traits and structs
-    Io(std::io::Error),
+    #[error("Failed to parse question data")]
+    Io(#[from] std::io::Error),
     /// Stores an error encountered while parsing the [DomainName]
-    Name(DomainNameError),
+    #[error(transparent)]
+    Name(#[from] DomainNameError),
     /// Stores an error encountered while parsin the [QType]
-    Type(num_enum::TryFromPrimitiveError<QType>),
+    #[error("Failed to convert primitive to QType")]
+    Type(#[from] num_enum::TryFromPrimitiveError<QType>),
     /// Stores an error encountered while parsin the [QClass]
-    Class(num_enum::TryFromPrimitiveError<QClass>),
+    #[error("Failed to convert primitive to QClass")]
+    Class(#[from] num_enum::TryFromPrimitiveError<QClass>),
 }
-
-impl std::fmt::Display for QuestionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(e) => write!(f, "IO error: {e}"),
-            Self::Name(e) => write!(f, "Name parsing error: {e}"),
-            Self::Type(e) => write!(f, "type parsing error: {e}"),
-            Self::Class(e) => write!(f, "class parsing error: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for QuestionError {}
 
 #[cfg(test)]
 mod tests {

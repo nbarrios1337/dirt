@@ -1,5 +1,7 @@
 use std::io::Cursor;
 
+use thiserror::Error;
+
 use crate::{
     header::{Header, HeaderError},
     question::{Question, QuestionError},
@@ -50,21 +52,17 @@ impl Packet {
 }
 
 /// [PacketError] wraps the errors that may be encountered during byte decoding of a [Packet]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PacketError {
-    Header(HeaderError),
-    Question(QuestionError),
-    Record(RecordError),
-}
-
-impl std::fmt::Display for PacketError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PacketError::Header(e) => write!(f, "Header parsing error: {e}"),
-            PacketError::Question(e) => write!(f, "Question parsing error: {e}"),
-            PacketError::Record(e) => write!(f, "Record parsing error: {e}"),
-        }
-    }
+    /// Encountered during header parsing
+    #[error(transparent)]
+    Header(#[from] HeaderError),
+    /// Encountered during question parsing
+    #[error(transparent)]
+    Question(#[from] QuestionError),
+    /// Encountered during record parsing
+    #[error(transparent)]
+    Record(#[from] RecordError),
 }
 
 type PacketResult<T> = std::result::Result<T, PacketError>;
