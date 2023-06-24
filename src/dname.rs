@@ -7,6 +7,8 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
 
+use thiserror::Error;
+
 /// Labels are the individual nodes or components of a [DomainName]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Label(String);
@@ -44,21 +46,14 @@ impl Label {
 }
 
 /// [LabelError] wraps the errors that may be encountered during byte decoding of a [Label]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LabelError {
     /// Stores an error encountered while using [std::io] traits and structs
-    Io(std::io::Error),
+    #[error("Failed to parse label data")]
+    Io(#[from] std::io::Error),
     /// Stores an error encountered while converting from a sequence of [u8] to [String]
-    Convert(std::str::Utf8Error),
-}
-
-impl std::fmt::Display for LabelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LabelError::Io(io) => write!(f, "IO error: {io}"),
-            LabelError::Convert(convert) => write!(f, "String parsing error: {convert}"),
-        }
-    }
+    #[error("Failed to convert byte slice to string slice")]
+    Convert(#[from] std::str::Utf8Error),
 }
 
 type LabelResult<T> = std::result::Result<T, LabelError>;
