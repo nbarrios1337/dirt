@@ -25,21 +25,19 @@ impl Label {
     }
 
     fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
-        bytes.read_exact(dest).map_err(LabelError::Io)?;
-        let label = std::str::from_utf8(dest)
-            .map_err(LabelError::Convert)?
-            .to_string();
+        bytes.read_exact(dest)?;
+        let label = std::str::from_utf8(dest)?.to_string();
         Ok(Self(label))
     }
 
     fn from_bytes(bytes: &mut Cursor<&[u8]>) -> LabelResult<Self> {
-        let size = bytes.read_u8().map_err(LabelError::Io)?;
+        let size = bytes.read_u8()?;
         let mut buf = vec![0u8; size as usize];
         Self::read_label(bytes, &mut buf)
     }
 
     fn from_bytes_with(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
-        let size = bytes.read_u8().map_err(LabelError::Io)?;
+        let size = bytes.read_u8()?;
         let buf = &mut dest[..size as usize];
         Self::read_label(bytes, buf)
     }
@@ -115,22 +113,18 @@ impl DomainName {
 
     fn read_compressed_label(bytes: &mut Cursor<&[u8]>, size: u8) -> Result<Vec<Label>> {
         // get pointed-to name
-        let second = bytes.read_u8().map_err(DomainNameError::Io)?;
+        let second = bytes.read_u8()?;
         let name_pos = u16::from_be_bytes([size & 0b0011_1111, second]);
 
         // save current pos
         let old_pos = bytes.position();
 
         // get name
-        bytes
-            .seek(SeekFrom::Start(name_pos as u64))
-            .map_err(DomainNameError::Io)?;
+        bytes.seek(SeekFrom::Start(name_pos as u64))?;
         let name = DomainName::from_bytes(bytes)?;
 
         // reset to current pos
-        bytes
-            .seek(SeekFrom::Start(old_pos))
-            .map_err(DomainNameError::Io)?;
+        bytes.seek(SeekFrom::Start(old_pos))?;
         Ok(name.0)
     }
 
@@ -142,7 +136,7 @@ impl DomainName {
         let mut labels = Vec::new();
 
         loop {
-            let size = bytes.read_u8().map_err(DomainNameError::Io)?;
+            let size = bytes.read_u8()?;
 
             match size {
                 size if Self::is_compressed(size) => {
@@ -154,7 +148,7 @@ impl DomainName {
                 }
                 _ => {
                     let dest = &mut label_bytes_buffer[..size as usize];
-                    let label = Label::read_label(bytes, dest).map_err(DomainNameError::Label)?;
+                    let label = Label::read_label(bytes, dest)?;
                     labels.push(label);
                 }
             }
@@ -176,7 +170,7 @@ type Result<T> = std::result::Result<T, DomainNameError>;
 pub enum DomainNameError {
     /// Stores an error encountered while [Label] parsing
     #[error(transparent)]
-    Label(LabelError),
+    Label(#[from] LabelError),
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse domain name data")]
     Io(#[from] std::io::Error),

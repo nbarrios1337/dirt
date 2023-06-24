@@ -31,20 +31,14 @@ pub struct Record {
 impl Record {
     /// Reads a [Record] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
-        let qname = DomainName::from_bytes(bytes).map_err(RecordError::Name)?;
+        let qname = DomainName::from_bytes(bytes)?;
+        let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>()?)?;
+        let qclass = QClass::try_from(bytes.read_u16::<NetworkEndian>()?)?;
+        let ttl = bytes.read_u32::<NetworkEndian>()?;
 
-        let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>().map_err(RecordError::Io)?)
-            .map_err(RecordError::Type)?;
-
-        let qclass = QClass::try_from(bytes.read_u16::<NetworkEndian>().map_err(RecordError::Io)?)
-            .map_err(RecordError::Class)?;
-
-        let ttl = bytes.read_u32::<NetworkEndian>().map_err(RecordError::Io)?;
-
-        let data_length = bytes.read_u16::<NetworkEndian>().map_err(RecordError::Io)?;
-
+        let data_length = bytes.read_u16::<NetworkEndian>()?;
         let mut data = vec![0; data_length as usize];
-        bytes.read_exact(&mut data).map_err(RecordError::Io)?;
+        bytes.read_exact(&mut data)?;
 
         Ok(Self {
             name: qname,

@@ -79,22 +79,9 @@ impl Question {
 
     /// Reads a [Question] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
-        // domain name parsing
-        let qname = DomainName::from_bytes(bytes).map_err(QuestionError::Name)?;
-
-        let qtype = QType::try_from(
-            bytes
-                .read_u16::<NetworkEndian>()
-                .map_err(QuestionError::Io)?,
-        )
-        .map_err(QuestionError::Type)?;
-
-        let qclass = QClass::try_from(
-            bytes
-                .read_u16::<NetworkEndian>()
-                .map_err(QuestionError::Io)?,
-        )
-        .map_err(QuestionError::Class)?;
+        let qname = DomainName::from_bytes(bytes)?;
+        let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>()?)?;
+        let qclass = QClass::try_from(bytes.read_u16::<NetworkEndian>()?)?;
 
         Ok(Self {
             qname,

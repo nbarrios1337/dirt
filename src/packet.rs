@@ -19,27 +19,23 @@ pub struct Packet {
 
 impl Packet {
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> PacketResult<Self> {
-        let header = Header::from_bytes(bytes).map_err(PacketError::Header)?;
+        let header = Header::from_bytes(bytes)?;
 
-        let questions: Vec<Question> =
-            std::iter::repeat_with(|| Question::from_bytes(bytes).map_err(PacketError::Question))
-                .take(header.num_questions as usize)
-                .collect::<PacketResult<Vec<Question>>>()?;
+        let questions: Vec<Question> = std::iter::repeat_with(|| Question::from_bytes(bytes))
+            .take(header.num_questions as usize)
+            .collect::<Result<Vec<Question>, QuestionError>>()?;
 
-        let answers: Vec<Record> =
-            std::iter::repeat_with(|| Record::from_bytes(bytes).map_err(PacketError::Record))
-                .take(header.num_answers as usize)
-                .collect::<PacketResult<Vec<Record>>>()?;
+        let answers: Vec<Record> = std::iter::repeat_with(|| Record::from_bytes(bytes))
+            .take(header.num_answers as usize)
+            .collect::<Result<Vec<Record>, RecordError>>()?;
 
-        let authorities: Vec<Record> =
-            std::iter::repeat_with(|| Record::from_bytes(bytes).map_err(PacketError::Record))
-                .take(header.num_authorities as usize)
-                .collect::<PacketResult<Vec<Record>>>()?;
+        let authorities: Vec<Record> = std::iter::repeat_with(|| Record::from_bytes(bytes))
+            .take(header.num_authorities as usize)
+            .collect::<Result<Vec<Record>, RecordError>>()?;
 
-        let additionals: Vec<Record> =
-            std::iter::repeat_with(|| Record::from_bytes(bytes).map_err(PacketError::Record))
-                .take(header.num_additionals as usize)
-                .collect::<PacketResult<Vec<Record>>>()?;
+        let additionals: Vec<Record> = std::iter::repeat_with(|| Record::from_bytes(bytes))
+            .take(header.num_additionals as usize)
+            .collect::<Result<Vec<Record>, RecordError>>()?;
 
         Ok(Self {
             header,

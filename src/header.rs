@@ -141,9 +141,7 @@ impl Header {
     /// Reads a header from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         let mut buf = [0u16; 6];
-        bytes
-            .read_u16_into::<NetworkEndian>(&mut buf)
-            .map_err(HeaderError::Io)?;
+        bytes.read_u16_into::<NetworkEndian>(&mut buf)?;
         let [id, flags, num_questions, num_answers, num_authorities, num_additionals]: [u16; 6] =
             buf;
 
