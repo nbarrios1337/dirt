@@ -6,11 +6,20 @@ mod qtype;
 mod question;
 mod record;
 
-use std::{io::Cursor, net::UdpSocket};
+use std::{
+    io::Cursor,
+    net::{ToSocketAddrs, UdpSocket},
+};
 
 use rand::Rng;
 
-use crate::{dname::DomainName, header::Header, packet::Packet, qtype::QType, question::Question};
+use crate::{
+    dname::DomainName,
+    header::Header,
+    packet::{Packet, PacketError},
+    qtype::QType,
+    question::Question,
+};
 
 pub fn build_query(domain_name: &str, record_type: QType) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();
@@ -41,34 +50,37 @@ pub fn build_query(domain_name: &str, record_type: QType) -> Vec<u8> {
 }
 
 /// Returns a ready-to-use UDP socket connected to the given address
-fn setup_udp_socket_to(
-    dns_server_addr: impl std::net::ToSocketAddrs,
-) -> Result<UdpSocket, std::io::Error> {
+fn setup_udp_socket_to(dns_server_addr: impl ToSocketAddrs) -> std::io::Result<UdpSocket> {
     let udp_sock = UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?;
     udp_sock.connect(dns_server_addr)?;
     Ok(udp_sock)
 }
 
-pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, packet::PacketError> {
-    let query = build_query(domain_name, qtype::QType::A);
+fn send_query(
+    desired_addr: &str,
+    server_addr: impl ToSocketAddrs,
+    record_type: QType,
+) -> Result<Packet, PacketError> {
+    let query = build_query(desired_addr, record_type);
 
     // connection setup
-    let udp_sock = setup_udp_socket_to("8.8.8.8:53").expect("Failed to setup UDP socket");
+    let udp_sock = setup_udp_socket_to(server_addr)?;
 
     // query request
-    udp_sock.send(&query).expect("Couldn't send query");
+    udp_sock.send(&query)?;
 
     // get response
     let mut recv_buf = [0u8; 1024];
-    let bytes_recv = udp_sock
-        .recv(&mut recv_buf)
-        .expect("Reponse receipt failed");
+    let bytes_recv = udp_sock.recv(&mut recv_buf)?;
 
     // parse response to packet
     let mut pkt_bytes_reader = Cursor::new(&recv_buf[..bytes_recv]);
 
-    // get id addr
-    Packet::from_bytes(&mut pkt_bytes_reader).map(|pkt| {
+    Packet::from_bytes(&mut pkt_bytes_reader)
+}
+
+pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, packet::PacketError> {
+    send_query(domain_name, "8.8.8.8:53", QType::A).map(|pkt| {
         std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&pkt.answers[0].rdata[..4]).unwrap())
     })
 }

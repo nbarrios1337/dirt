@@ -50,6 +50,9 @@ impl Packet {
 /// [PacketError] wraps the errors that may be encountered during byte decoding of a [Packet]
 #[derive(Debug, Error)]
 pub enum PacketError {
+    /// Stores an error encountered while using [std::io] traits and structs
+    #[error("Failed to parse packet data")]
+    Io(#[from] std::io::Error),
     /// Encountered during header parsing
     #[error(transparent)]
     Header(#[from] HeaderError),
