@@ -80,12 +80,7 @@ fn send_query(
 }
 
 pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, PacketError> {
-    send_query(
-        domain_name,
-        std::net::IpAddr::V4("8.8.8.8".parse().unwrap()),
-        QType::A,
-    )
-    .map(|pkt| std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&pkt.answers[0].rdata[..4]).unwrap()))
+    resolve(domain_name, QType::A)
 }
 
 pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Addr, PacketError> {
