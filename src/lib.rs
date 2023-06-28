@@ -56,13 +56,15 @@ fn setup_udp_socket_to(dns_server_addr: impl ToSocketAddrs) -> std::io::Result<U
 
 fn send_query(
     desired_addr: &str,
-    server_addr: impl ToSocketAddrs,
+    server_addr: std::net::IpAddr,
     record_type: QType,
 ) -> Result<Packet, PacketError> {
     let query = build_query(desired_addr, record_type, 0);
 
+    let socket_addr = std::net::SocketAddr::from((server_addr, 53));
+
     // connection setup
-    let udp_sock = setup_udp_socket_to(server_addr)?;
+    let udp_sock = setup_udp_socket_to(socket_addr)?;
 
     // query request
     udp_sock.send(&query)?;
@@ -77,10 +79,13 @@ fn send_query(
     Packet::from_bytes(&mut pkt_bytes_reader)
 }
 
-pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, packet::PacketError> {
-    send_query(domain_name, "8.8.8.8:53", QType::A).map(|pkt| {
-        std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&pkt.answers[0].rdata[..4]).unwrap())
-    })
+pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, PacketError> {
+    send_query(
+        domain_name,
+        std::net::IpAddr::V4("8.8.8.8".parse().unwrap()),
+        QType::A,
+    )
+    .map(|pkt| std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&pkt.answers[0].rdata[..4]).unwrap()))
 }
 
 fn print_bytes_as_hex(bytes: &[u8]) {
