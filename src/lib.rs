@@ -88,6 +88,36 @@ pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, PacketErro
     .map(|pkt| std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&pkt.answers[0].rdata[..4]).unwrap()))
 }
 
+pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Addr, PacketError> {
+    let mut nameserver = "198.41.0.4".parse::<std::net::IpAddr>().unwrap();
+    loop {
+        println!("Querying {nameserver} for {domain_name}");
+        let resp = send_query(domain_name, nameserver, record_type)?;
+
+        // have an answer, return
+        if let Some(domain_ip) = resp.answers.iter().find(|answer| answer.qtype == QType::A) {
+            return Ok(std::net::Ipv4Addr::from(
+                <[u8; 4]>::try_from(&domain_ip.rdata[..4]).unwrap(),
+            ));
+        } else if let Some(nameserver_ip) =
+            resp.additionals.iter().find(|addi| addi.qtype == QType::A)
+        {
+            nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::from(
+                <[u8; 4]>::try_from(&nameserver_ip.rdata[..4]).unwrap(),
+            ))
+        } else if let Some(new_nameserver) =
+            resp.authorities.iter().find(|auth| auth.qtype == QType::NS)
+        {
+            nameserver = std::net::IpAddr::V4(resolve(
+                std::str::from_utf8(&new_nameserver.rdata).unwrap(),
+                record_type,
+            )?);
+        } else {
+            panic!("Unexpected resolver error")
+        }
+    }
+}
+
 fn print_bytes_as_hex(bytes: &[u8]) {
     eprint!("0x");
     for b in bytes {
@@ -137,6 +167,14 @@ mod tests {
         // query request
         udp_sock.send(&query_bytes).expect("Couldn't send query");
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve() -> Result<(), packet::PacketError> {
+        let result_ip = resolve("www.example.com", QType::A)?;
+        let correct_ip = "93.184.216.34".parse::<std::net::Ipv4Addr>().unwrap();
+        assert_eq!(result_ip, correct_ip);
         Ok(())
     }
 }
