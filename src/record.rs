@@ -39,13 +39,11 @@ impl Record {
         let data_length = bytes.read_u16::<NetworkEndian>()?;
 
         let data = match qtype {
-            QType::NS => DomainName::from_bytes(bytes)?.into_bytes(),
+            QType::NS => String::from(DomainName::from_bytes(bytes)?).into_bytes(),
             QType::A => {
                 let mut data = vec![0; data_length as usize];
                 bytes.read_exact(&mut data)?;
-                std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&data[..4]).unwrap())
-                    .octets()
-                    .to_vec()
+                data[..4].to_vec()
             }
             _ => {
                 let mut data = vec![0; data_length as usize];
