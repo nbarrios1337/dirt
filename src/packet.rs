@@ -51,7 +51,7 @@ impl Packet {
 #[derive(Debug, Error)]
 pub enum PacketError {
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse packet data")]
+    #[error("Failed to parse packet data: {0}")]
     Io(#[from] std::io::Error),
     /// Encountered during header parsing
     #[error(transparent)]

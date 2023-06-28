@@ -160,7 +160,7 @@ impl Header {
 #[derive(Debug, Error)]
 pub enum HeaderError {
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse header data")]
+    #[error("Failed to parse header data: {0}")]
     Io(#[from] std::io::Error),
 }
 

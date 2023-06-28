@@ -47,10 +47,10 @@ impl Label {
 #[derive(Debug, Error)]
 pub enum LabelError {
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse label data")]
+    #[error("Failed to parse label data: {0}")]
     Io(#[from] std::io::Error),
     /// Stores an error encountered while converting from a sequence of [u8] to [String]
-    #[error("Failed to convert byte slice to string slice")]
+    #[error("Failed to convert byte slice to string slice: {0}")]
     Convert(#[from] std::str::Utf8Error),
 }
 
@@ -172,7 +172,7 @@ pub enum DomainNameError {
     #[error(transparent)]
     Label(#[from] LabelError),
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse domain name data")]
+    #[error("Failed to parse domain name data: {0}")]
     Io(#[from] std::io::Error),
 }
 

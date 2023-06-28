@@ -97,16 +97,16 @@ type Result<T> = std::result::Result<T, QuestionError>;
 #[derive(Debug, Error)]
 pub enum QuestionError {
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse question data")]
+    #[error("Failed to parse question data: {0}")]
     Io(#[from] std::io::Error),
     /// Stores an error encountered while parsing the [DomainName]
     #[error(transparent)]
     Name(#[from] DomainNameError),
     /// Stores an error encountered while parsin the [QType]
-    #[error("Failed to convert primitive to QType")]
+    #[error("Failed to convert primitive to QType: {0}")]
     Type(#[from] num_enum::TryFromPrimitiveError<QType>),
     /// Stores an error encountered while parsin the [QClass]
-    #[error("Failed to convert primitive to QClass")]
+    #[error("Failed to convert primitive to QClass: {0}")]
     Class(#[from] num_enum::TryFromPrimitiveError<QClass>),
 }
 
