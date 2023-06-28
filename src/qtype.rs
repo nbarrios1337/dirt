@@ -40,6 +40,8 @@ pub enum QType {
     MX = 15,
     /// text strings
     TXT = 16,
+    /// an IPv6 host address (see RFC 3596)
+    AAAA = 28,
     // QTYPEs below
     /// A request for a transfer of an entire zone
     AXFR = 252,
