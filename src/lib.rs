@@ -21,13 +21,11 @@ use crate::{
     question::Question,
 };
 
-pub fn build_query(domain_name: &str, record_type: QType) -> Vec<u8> {
+pub fn build_query(domain_name: &str, record_type: QType, flags: u16) -> Vec<u8> {
     let id: u16 = rand::thread_rng().gen();
-    // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
-    const RECURSION_DESIRED: u16 = 1 << 8;
     let header = Header {
         id,
-        flags: RECURSION_DESIRED,
+        flags,
         num_questions: 1,
         num_answers: 0,
         num_authorities: 0,
@@ -61,7 +59,7 @@ fn send_query(
     server_addr: impl ToSocketAddrs,
     record_type: QType,
 ) -> Result<Packet, PacketError> {
-    let query = build_query(desired_addr, record_type);
+    let query = build_query(desired_addr, record_type, 0);
 
     // connection setup
     let udp_sock = setup_udp_socket_to(server_addr)?;
@@ -97,11 +95,14 @@ fn print_bytes_as_hex(bytes: &[u8]) {
 mod tests {
     use crate::*;
 
+    // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
+    const RECURSION_DESIRED: u16 = 1 << 8;
+
     #[test]
     fn test_build_query() -> std::fmt::Result {
         let correct_bytes_str =
             "82980100000100000000000003777777076578616d706c6503636f6d0000010001";
-        let query_bytes = build_query("www.example.com", qtype::QType::A);
+        let query_bytes = build_query("www.example.com", qtype::QType::A, RECURSION_DESIRED);
 
         let mut query_bytes_str = String::with_capacity(correct_bytes_str.len());
 
@@ -123,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_send_query() -> std::io::Result<()> {
-        let query_bytes = build_query("www.example.com", qtype::QType::A);
+        let query_bytes = build_query("www.example.com", qtype::QType::A, RECURSION_DESIRED);
 
         // connection setup
         let udp_sock = setup_udp_socket_to("8.8.8.8:53").expect("Failed to setup UDP socket");
