@@ -8,10 +8,11 @@ Meant as a foray into networking, I intend for this project to be my own inpleme
 
 - [x] Query creation
 - [x] Header and question parsing
+- [x] recursive resolving
+- [x] type-dependent record parsing (A and NS types)
 
 ## TODO / Potential Features
 
-- [ ] type-dependent record parsing
-- [ ] recursive resolving
 - [ ] caching (databases?)
 - [ ] asynchronous queries
+- [ ] request/response multitasking
