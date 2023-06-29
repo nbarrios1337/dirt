@@ -108,7 +108,7 @@ pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Ad
                 record_type,
             )?);
         } else {
-            panic!("Unexpected resolver error")
+            panic!("Unexpected resolver error\npacket received: {resp:#?}")
         }
     }
 }
