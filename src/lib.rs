@@ -1,6 +1,6 @@
 mod dname;
 mod header;
-mod packet;
+mod message;
 mod qclass;
 mod qtype;
 mod question;
@@ -16,7 +16,7 @@ use rand::Rng;
 use crate::{
     dname::DomainName,
     header::Header,
-    packet::{Packet, PacketError},
+    message::{Message, MessageError},
     qtype::QType,
     question::Question,
 };
@@ -58,7 +58,7 @@ fn send_query(
     desired_addr: &str,
     server_addr: std::net::IpAddr,
     record_type: QType,
-) -> Result<Packet, PacketError> {
+) -> Result<Message, MessageError> {
     let query = build_query(desired_addr, record_type, 0);
 
     let socket_addr = std::net::SocketAddr::from((server_addr, 53));
@@ -73,17 +73,17 @@ fn send_query(
     let mut recv_buf = [0u8; 1024];
     let bytes_recv = udp_sock.recv(&mut recv_buf)?;
 
-    // parse response to packet
-    let mut pkt_bytes_reader = Cursor::new(&recv_buf[..bytes_recv]);
+    // parse response to message
+    let mut msg_bytes_reader = Cursor::new(&recv_buf[..bytes_recv]);
 
-    Packet::from_bytes(&mut pkt_bytes_reader)
+    Message::from_bytes(&mut msg_bytes_reader)
 }
 
-pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, PacketError> {
+pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, MessageError> {
     resolve(domain_name, QType::A)
 }
 
-pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Addr, PacketError> {
+pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Addr, MessageError> {
     let mut nameserver = "198.41.0.4".parse::<std::net::IpAddr>().unwrap();
     loop {
         println!("Querying {nameserver} for {domain_name}");
@@ -108,7 +108,7 @@ pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Ad
                 record_type,
             )?);
         } else {
-            panic!("Unexpected resolver error\npacket received: {resp:#?}")
+            panic!("Unexpected resolver error\nreceived: {resp:#?}")
         }
     }
 }
@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve() -> Result<(), packet::PacketError> {
+    fn test_resolve() -> Result<(), message::MessageError> {
         let result_ip = resolve("www.example.com", QType::A)?;
         let correct_ip = "93.184.216.34".parse::<std::net::Ipv4Addr>().unwrap();
         assert_eq!(result_ip, correct_ip);

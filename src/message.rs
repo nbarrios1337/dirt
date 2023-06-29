@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Packet {
+pub struct Message {
     pub header: Header,
     pub questions: Vec<Question>,
     pub answers: Vec<Record>,
@@ -17,8 +17,8 @@ pub struct Packet {
     pub additionals: Vec<Record>,
 }
 
-impl Packet {
-    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> PacketResult<Self> {
+impl Message {
+    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> MessageResult<Self> {
         let header = Header::from_bytes(bytes)?;
 
         let questions: Vec<Question> = std::iter::repeat_with(|| Question::from_bytes(bytes))
@@ -47,11 +47,11 @@ impl Packet {
     }
 }
 
-/// [PacketError] wraps the errors that may be encountered during byte decoding of a [Packet]
+/// [MessageError] wraps the errors that may be encountered during byte decoding of a [Message]
 #[derive(Debug, Error)]
-pub enum PacketError {
+pub enum MessageError {
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse packet data: {0}")]
+    #[error("Failed to parse message data: {0}")]
     Io(#[from] std::io::Error),
     /// Encountered during header parsing
     #[error(transparent)]
@@ -64,4 +64,4 @@ pub enum PacketError {
     Record(#[from] RecordError),
 }
 
-type PacketResult<T> = std::result::Result<T, PacketError>;
+type MessageResult<T> = std::result::Result<T, MessageError>;
