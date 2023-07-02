@@ -25,8 +25,21 @@ impl Label {
     }
 
     fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
-        bytes.read_exact(dest)?;
-        let label = std::str::from_utf8(dest)?.to_string();
+        bytes.read_exact(dest).map_err(|source| {
+            let mut owned_bytes = Cursor::new(bytes.get_ref().to_vec());
+            owned_bytes.set_position(bytes.position());
+            LabelError::Io {
+                src_bytes: owned_bytes,
+                dest_amt: dest.len(),
+                source,
+            }
+        })?;
+        let label = std::str::from_utf8(dest)
+            .map_err(|source| LabelError::Convert {
+                bytes: dest.to_vec(),
+                source,
+            })?
+            .to_string();
         Ok(Self(label))
     }
 
@@ -47,11 +60,18 @@ impl Label {
 #[derive(Debug, Error)]
 pub enum LabelError {
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse label data: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("Failed to read {dest_amt} bytes from {src_bytes:?}:\n\t{source}")]
+    Io {
+        src_bytes: Cursor<Vec<u8>>,
+        dest_amt: usize,
+        source: std::io::Error,
+    },
     /// Stores an error encountered while converting from a sequence of [u8] to [String]
-    #[error("Failed to convert byte slice to string slice: {0}")]
-    Convert(#[from] std::str::Utf8Error),
+    #[error("Failed to convert byte slice {bytes:?} to string slice:\n\t{source}")]
+    Convert {
+        bytes: Vec<u8>,
+        source: std::str::Utf8Error,
+    },
 }
 
 type LabelResult<T> = std::result::Result<T, LabelError>;
@@ -148,7 +168,8 @@ impl DomainName {
                 }
                 _ => {
                     let dest = &mut label_bytes_buffer[..size as usize];
-                    let label = Label::read_label(bytes, dest)?;
+                    let label = Label::read_label(bytes, dest)
+                        .map_err(|source| DomainNameError::Label { size, source })?;
                     labels.push(label);
                 }
             }
@@ -169,10 +190,14 @@ type Result<T> = std::result::Result<T, DomainNameError>;
 #[derive(Debug, Error)]
 pub enum DomainNameError {
     /// Stores an error encountered while [Label] parsing
-    #[error(transparent)]
-    Label(#[from] LabelError),
+    #[error("Attempted to parse a {size}-octets label:\n\t{source}")]
+    Label {
+        size: u8,
+        #[source]
+        source: LabelError,
+    },
     /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to parse domain name data: {0}")]
+    #[error("Failed to parse domain name data:\n\t{0}")]
     Io(#[from] std::io::Error),
 }
 
