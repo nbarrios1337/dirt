@@ -39,7 +39,7 @@ impl Record {
         let data_length = bytes.read_u16::<NetworkEndian>()?;
 
         let data = match qtype {
-            QType::NS => String::from(DomainName::from_bytes(bytes)?).into_bytes(),
+            QType::NS | QType::CNAME => String::from(DomainName::from_bytes(bytes)?).into_bytes(),
             QType::A => {
                 let mut data = vec![0; data_length as usize];
                 bytes.read_exact(&mut data)?;

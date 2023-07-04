@@ -107,6 +107,8 @@ pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Ad
                 std::str::from_utf8(&new_nameserver.rdata).unwrap(),
                 record_type,
             )?);
+        } else if let Some(cname_rec) = resp.answers.iter().find(|ans| ans.qtype == QType::CNAME) {
+            return resolve(std::str::from_utf8(&cname_rec.rdata).unwrap(), record_type);
         } else {
             panic!("Unexpected resolver error\nreceived: {resp:#?}")
         }
@@ -170,6 +172,13 @@ mod tests {
         let result_ip = resolve("www.example.com", QType::A)?;
         let correct_ip = "93.184.216.34".parse::<std::net::Ipv4Addr>().unwrap();
         assert_eq!(result_ip, correct_ip);
+        Ok(())
+    }
+
+    #[test]
+    fn test_cname() -> Result<(), MessageError> {
+        // facebook has multiple IP addrs, no sense checking for any possible one.
+        let _ = lookup_domain("www.facebook.com")?;
         Ok(())
     }
 }
