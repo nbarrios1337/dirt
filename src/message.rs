@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::{
     header::{Header, HeaderError},
+    qtype::QType,
     question::{Question, QuestionError},
     record::{Record, RecordError},
 };
@@ -40,6 +41,13 @@ pub struct Message {
     pub additionals: Vec<Record>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum MsgSection {
+    Answers,
+    Authorities,
+    Additionals,
+}
+
 impl Message {
     /// Reads a [Message] a sequence of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> MessageResult<Self> {
@@ -68,6 +76,23 @@ impl Message {
             authorities,
             additionals,
         })
+    }
+}
+
+// querying data
+impl Message {
+    pub fn get_records(&self, section: MsgSection) -> &[Record] {
+        match section {
+            MsgSection::Answers => &self.answers,
+            MsgSection::Authorities => &self.authorities,
+            MsgSection::Additionals => &self.additionals,
+        }
+    }
+
+    pub fn get_record_by_type_from(&self, qtype: QType, section: MsgSection) -> Option<&Record> {
+        self.get_records(section)
+            .iter()
+            .find(|rec| rec.qtype == qtype)
     }
 }
 

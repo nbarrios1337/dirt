@@ -16,7 +16,7 @@ use rand::Rng;
 use crate::{
     dname::DomainName,
     header::Header,
-    message::{Message, MessageError},
+    message::{Message, MessageError, MsgSection},
     qtype::QType,
     question::Question,
 };
@@ -79,36 +79,30 @@ fn send_query(
     Message::from_bytes(&mut msg_bytes_reader)
 }
 
-pub fn lookup_domain(domain_name: &str) -> Result<std::net::Ipv4Addr, MessageError> {
+pub fn lookup_domain(domain_name: &str) -> Result<std::net::IpAddr, MessageError> {
     resolve(domain_name, QType::A)
 }
 
-pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::Ipv4Addr, MessageError> {
+pub fn resolve(domain_name: &str, record_type: QType) -> Result<std::net::IpAddr, MessageError> {
     let mut nameserver = "198.41.0.4".parse::<std::net::IpAddr>().unwrap();
     loop {
         println!("Querying {nameserver} for {domain_name}");
         let resp = send_query(domain_name, nameserver, record_type)?;
 
-        // have an answer, return
-        if let Some(domain_ip) = resp.answers.iter().find(|answer| answer.qtype == QType::A) {
-            return Ok(std::net::Ipv4Addr::from(
-                <[u8; 4]>::try_from(&domain_ip.rdata[..4]).unwrap(),
-            ));
-        } else if let Some(nameserver_ip) =
-            resp.additionals.iter().find(|addi| addi.qtype == QType::A)
+        if let Some(domain_ip_rr) = resp.get_record_by_type_from(QType::A, MsgSection::Answers) {
+            return Ok(domain_ip_rr.data_as_ip_addr());
+        } else if let Some(ns_ip_rr) =
+            resp.get_record_by_type_from(QType::A, MsgSection::Additionals)
         {
-            nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::from(
-                <[u8; 4]>::try_from(&nameserver_ip.rdata[..4]).unwrap(),
-            ))
-        } else if let Some(new_nameserver) =
-            resp.authorities.iter().find(|auth| auth.qtype == QType::NS)
+            nameserver = ns_ip_rr.data_as_ip_addr();
+        } else if let Some(ns_dname_rr) =
+            resp.get_record_by_type_from(QType::NS, MsgSection::Authorities)
         {
-            nameserver = std::net::IpAddr::V4(resolve(
-                std::str::from_utf8(&new_nameserver.rdata).unwrap(),
-                record_type,
-            )?);
-        } else if let Some(cname_rec) = resp.answers.iter().find(|ans| ans.qtype == QType::CNAME) {
-            return resolve(std::str::from_utf8(&cname_rec.rdata).unwrap(), record_type);
+            nameserver = resolve(ns_dname_rr.data_as_str(), record_type)?;
+        } else if let Some(cname_rr) =
+            resp.get_record_by_type_from(QType::CNAME, MsgSection::Answers)
+        {
+            return resolve(cname_rr.data_as_str(), record_type);
         } else {
             panic!("Unexpected resolver error\nreceived: {resp:#?}")
         }

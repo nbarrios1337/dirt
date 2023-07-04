@@ -62,6 +62,25 @@ impl Record {
     }
 }
 
+// parsing data
+impl Record {
+    pub fn data_as_str(&self) -> &str {
+        std::str::from_utf8(&self.rdata).unwrap()
+    }
+
+    pub fn data_as_ip_addr(&self) -> std::net::IpAddr {
+        match self.qtype {
+            QType::A => std::net::IpAddr::V4(std::net::Ipv4Addr::from(
+                <[u8; 4]>::try_from(&self.rdata[..4]).unwrap(),
+            )),
+            QType::AAAA => std::net::IpAddr::V6(std::net::Ipv6Addr::from(
+                <[u8; 16]>::try_from(&self.rdata[..16]).unwrap(),
+            )),
+            _ => unreachable!(),
+        }
+    }
+}
+
 type Result<T> = std::result::Result<T, RecordError>;
 
 /// [RecordError] wraps the errors that may be encountered during byte decoding of a [Record]
