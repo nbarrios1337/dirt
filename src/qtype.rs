@@ -13,28 +13,35 @@ pub enum QType {
     /// an authoritative name server
     NS = 2,
     /// a mail destination (Obsolete - use MX)
+    #[deprecated = "Obsoleted by RFC 973 (use MX)"]
     MD = 3,
     /// a mail forwarder (Obsolete - use MX)
+    #[deprecated = "Obsoleted by RFC 973 (use MX)"]
     MF = 4,
     /// the canonical name for an alias
     CNAME = 5,
     /// marks the start of a zone of authority
     SOA = 6,
     /// a mailbox domain name (EXPERIMENTAL)
+    #[deprecated = "Informally obsoleted by RFC 2505"]
     MB = 7,
     /// a mail group member (EXPERIMENTAL)
+    #[deprecated = "Informally obsoleted by RFC 2505"]
     MG = 8,
     /// a mail rename domain name (EXPERIMENTAL)
+    #[deprecated = "Informally obsoleted by RFC 2505"]
     MR = 9,
     /// a null RR (EXPERIMENTAL)
     NULL = 10,
     /// a well known service description
+    #[deprecated = "Declared as \"not to be relied upon\" by RFC 1123 and 1127"]
     WKS = 11,
     /// a domain name pointer
     PTR = 12,
     /// host information
     HINFO = 13,
     /// mailbox or mail list information
+    #[deprecated = "Informally obsoleted by RFC 2505"]
     MINFO = 14,
     /// mail exchange
     MX = 15,
@@ -46,9 +53,11 @@ pub enum QType {
     /// A request for a transfer of an entire zone
     AXFR = 252,
     /// A request for mailbox-related records (MB, MG or MR)
+    #[deprecated = "Informally obsoleted by RFC 2505"]
     MAILB = 253,
     /// A request for mail agent RRs (Obsolete - see MX)
+    #[deprecated = "Obsoleted by RFC 973 (use MX)"]
     MAILA = 254,
     /// A request for all records (denoted as "*" in RFC 1035)
-    ALL = 255,
+    ANY = 255,
 }

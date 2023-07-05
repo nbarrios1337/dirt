@@ -11,11 +11,12 @@ pub enum QClass {
     /// the Internet
     IN = 1,
     /// the CSNET class (Obsolete - used only for examples in some obsolete RFCs)
+    #[deprecated]
     CS = 2,
     /// the CHAOS class
     CH = 3,
     /// Hesiod [Dyer 87]
     HS = 4,
     /// any class (denoted as "*" in RFC 1035)
-    ALL = 255,
+    ANY = 255,
 }
