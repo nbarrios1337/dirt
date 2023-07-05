@@ -42,18 +42,6 @@ impl Label {
             .to_string();
         Ok(Self(label))
     }
-
-    fn from_bytes(bytes: &mut Cursor<&[u8]>) -> LabelResult<Self> {
-        let size = bytes.read_u8()?;
-        let mut buf = vec![0u8; size as usize];
-        Self::read_label(bytes, &mut buf)
-    }
-
-    fn from_bytes_with(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
-        let size = bytes.read_u8()?;
-        let buf = &mut dest[..size as usize];
-        Self::read_label(bytes, buf)
-    }
 }
 
 /// [LabelError] wraps the errors that may be encountered during byte decoding of a [Label]
