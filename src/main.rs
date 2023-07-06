@@ -8,6 +8,11 @@ struct Arguments {
 }
 
 fn main() {
+    let tracing_subcriber = tracing_subscriber::FmtSubscriber::new();
+    if let Err(e) = tracing::subscriber::set_global_default(tracing_subcriber) {
+        panic!("{e}")
+    };
+
     let args = Arguments::parse();
 
     match dirt::lookup_domain(&args.request) {
