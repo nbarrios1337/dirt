@@ -3,66 +3,85 @@
 //! See more in [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034)
 //! and [RFC 1035 section 3.1](https://datatracker.ietf.org/doc/html/rfc1035#section-3.1)
 
-use std::io::{Cursor, Read, Seek, SeekFrom};
+mod label {
+    use std::io::{Cursor, Read};
+
+    use thiserror::Error;
+
+    /// Labels are the individual nodes or components of a [`DomainName`]
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct Label(String);
+
+    impl Label {
+        pub fn new(string: String) -> Self {
+            Self(string)
+        }
+    }
+
+    impl Label {
+        /// The maximum size of a single label within a domain name
+        pub const MAX_LABEL_SIZE: usize = 63;
+
+        pub fn into_bytes(self) -> Vec<u8> {
+            let size = self.0.len();
+            let mut buf = self.0.into_bytes();
+            buf.splice(0..0, [size as u8]);
+            buf
+        }
+
+        pub fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> Result<Self> {
+            bytes.read_exact(dest).map_err(|source| {
+                let mut owned_bytes = Cursor::new(bytes.get_ref().to_vec());
+                owned_bytes.set_position(bytes.position());
+                Error::Io {
+                    src_bytes: owned_bytes,
+                    dest_amt: dest.len(),
+                    source,
+                }
+            })?;
+            let label = std::str::from_utf8(dest)
+                .map_err(|source| Error::Convert {
+                    bytes: dest.to_vec(),
+                    source,
+                })?
+                .to_string();
+            Ok(Self(label))
+        }
+    }
+
+    impl ToString for Label {
+        fn to_string(&self) -> String {
+            self.0.clone()
+        }
+    }
+
+    /// Wraps the errors that may be encountered during byte decoding of a [`Label`]
+    #[derive(Debug, Error)]
+    pub enum Error {
+        /// Stores an error encountered while using [std::io] traits and structs
+        #[error("Failed to read {dest_amt} bytes from {src_bytes:?}:\n\t{source}")]
+        Io {
+            src_bytes: Cursor<Vec<u8>>,
+            dest_amt: usize,
+            source: std::io::Error,
+        },
+        /// Stores an error encountered while converting from a sequence of [u8] to [String]
+        #[error("Failed to convert byte slice {bytes:?} to string slice:\n\t{source}")]
+        Convert {
+            bytes: Vec<u8>,
+            source: std::str::Utf8Error,
+        },
+    }
+
+    type Result<T> = std::result::Result<T, Error>;
+}
+
+use label::Label;
+
+use std::io::{Cursor, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
-
 use thiserror::Error;
-
-/// Labels are the individual nodes or components of a [`DomainName`]
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Label(String);
-
-impl Label {
-    /// The maximum size of a single label within a domain name
-    pub const MAX_LABEL_SIZE: usize = 63;
-
-    fn into_bytes(self) -> Vec<u8> {
-        let size = self.0.len();
-        let mut buf = self.0.into_bytes();
-        buf.splice(0..0, [size as u8]);
-        buf
-    }
-
-    fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> LabelResult<Self> {
-        bytes.read_exact(dest).map_err(|source| {
-            let mut owned_bytes = Cursor::new(bytes.get_ref().to_vec());
-            owned_bytes.set_position(bytes.position());
-            LabelError::Io {
-                src_bytes: owned_bytes,
-                dest_amt: dest.len(),
-                source,
-            }
-        })?;
-        let label = std::str::from_utf8(dest)
-            .map_err(|source| LabelError::Convert {
-                bytes: dest.to_vec(),
-                source,
-            })?
-            .to_string();
-        Ok(Self(label))
-    }
-}
-
-/// [`LabelError`] wraps the errors that may be encountered during byte decoding of a [`Label`]
-#[derive(Debug, Error)]
-pub enum LabelError {
-    /// Stores an error encountered while using [std::io] traits and structs
-    #[error("Failed to read {dest_amt} bytes from {src_bytes:?}:\n\t{source}")]
-    Io {
-        src_bytes: Cursor<Vec<u8>>,
-        dest_amt: usize,
-        source: std::io::Error,
-    },
-    /// Stores an error encountered while converting from a sequence of [u8] to [String]
-    #[error("Failed to convert byte slice {bytes:?} to string slice:\n\t{source}")]
-    Convert {
-        bytes: Vec<u8>,
-        source: std::str::Utf8Error,
-    },
-}
-
-type LabelResult<T> = std::result::Result<T, LabelError>;
 
 /// Domain names define a name of a node in requests and responses
 #[derive(Clone, PartialEq, Eq)]
@@ -89,7 +108,7 @@ impl From<String> for DomainName {
         Self(
             value
                 .split('.')
-                .map(|substr| Label(substr.to_string()))
+                .map(|substr| Label::new(substr.to_string()))
                 .collect(),
         )
     }
@@ -100,7 +119,7 @@ impl From<DomainName> for String {
         value
             .0
             .into_iter()
-            .map(|label| label.0)
+            .map(|label| label.to_string())
             .reduce(|acc, label_str| acc + "." + &label_str)
             .unwrap_or_default()
     }
@@ -157,7 +176,7 @@ impl DomainName {
                 _ => {
                     let dest = &mut label_bytes_buffer[..size as usize];
                     let label = Label::read_label(bytes, dest)
-                        .map_err(|source| DomainNameError::Label { size, source })?;
+                        .map_err(|source| Error::Label { size, source })?;
                     labels.push(label);
                 }
             }
@@ -172,17 +191,17 @@ impl DomainName {
     }
 }
 
-type Result<T> = std::result::Result<T, DomainNameError>;
+type Result<T> = std::result::Result<T, Error>;
 
-/// [`DomainNameError`] wraps the errors that may be encountered during byte decoding of a [`DomainName`]
+/// Wraps the errors that may be encountered during byte decoding of a [`DomainName`]
 #[derive(Debug, Error)]
-pub enum DomainNameError {
+pub enum Error {
     /// Stores an error encountered while [Label] parsing
     #[error("Attempted to parse a {size}-octets label:\n\t{source}")]
     Label {
         size: u8,
         #[source]
-        source: LabelError,
+        source: label::Error,
     },
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse domain name data:\n\t{0}")]

@@ -1,13 +1,8 @@
 use std::io::{Cursor, Read};
 
 use byteorder::{NetworkEndian, ReadBytesExt};
-use thiserror::Error;
 
-use crate::{
-    dname::{DomainName, DomainNameError},
-    qclass::QClass,
-    qtype::QType,
-};
+use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// A resource record
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,17 +76,17 @@ impl Record {
     }
 }
 
-type Result<T> = std::result::Result<T, RecordError>;
+type Result<T> = std::result::Result<T, Error>;
 
-/// [`RecordError`] wraps the errors that may be encountered during byte decoding of a [`Record`]
-#[derive(Debug, Error)]
-pub enum RecordError {
+/// Wraps the errors that may be encountered during byte decoding of a [`Record`]
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse question data: {0}")]
     Io(#[from] std::io::Error),
     /// Stores an error encountered while parsing the [DomainName]
     #[error(transparent)]
-    Name(#[from] DomainNameError),
+    Name(#[from] crate::dname::Error),
     /// Stores an error encountered while parsin the [QType]
     #[error("Failed to convert primitive to QType: {0}")]
     Type(#[from] num_enum::TryFromPrimitiveError<QType>),

@@ -37,13 +37,8 @@
 use std::io::Cursor;
 
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
-use thiserror::Error;
 
-use crate::{
-    dname::{DomainName, DomainNameError},
-    qclass::QClass,
-    qtype::QType,
-};
+use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// Carries the parameters that define what is being asked
 #[derive(Debug, Clone)]
@@ -91,17 +86,17 @@ impl Question {
     }
 }
 
-type Result<T> = std::result::Result<T, QuestionError>;
+type Result<T> = std::result::Result<T, Error>;
 
-/// [`QuestionError`] wraps the errors that may be encountered during byte decoding of a [`Question`]
-#[derive(Debug, Error)]
-pub enum QuestionError {
+/// Wraps the errors that may be encountered during byte decoding of a [`Question`]
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse question data: {0}")]
     Io(#[from] std::io::Error),
     /// Stores an error encountered while parsing the [DomainName]
     #[error(transparent)]
-    Name(#[from] DomainNameError),
+    Name(#[from] crate::dname::Error),
     /// Stores an error encountered while parsin the [QType]
     #[error("Failed to convert primitive to QType: {0}")]
     Type(#[from] num_enum::TryFromPrimitiveError<QType>),

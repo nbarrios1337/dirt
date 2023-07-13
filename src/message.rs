@@ -1,13 +1,6 @@
 use std::io::Cursor;
 
-use thiserror::Error;
-
-use crate::{
-    header::{Header, HeaderError},
-    qtype::QType,
-    question::{Question, QuestionError},
-    record::{Record, RecordError},
-};
+use crate::{header::Header, qtype::QType, question::Question, record::Record};
 
 /// All communications inside of the domain protocol are carried in a single format called a message.
 ///
@@ -50,24 +43,24 @@ pub enum MsgSection {
 
 impl Message {
     /// Reads a [`Message`] a sequence of bytes
-    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> MessageResult<Self> {
+    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         let header = Header::from_bytes(bytes)?;
 
         let questions: Vec<Question> = std::iter::repeat_with(|| Question::from_bytes(bytes))
             .take(header.num_questions as usize)
-            .collect::<Result<Vec<Question>, QuestionError>>()?;
+            .collect::<std::result::Result<Vec<Question>, crate::question::Error>>()?;
 
         let answers: Vec<Record> = std::iter::repeat_with(|| Record::from_bytes(bytes))
             .take(header.num_answers as usize)
-            .collect::<Result<Vec<Record>, RecordError>>()?;
+            .collect::<std::result::Result<Vec<Record>, crate::record::Error>>()?;
 
         let authorities: Vec<Record> = std::iter::repeat_with(|| Record::from_bytes(bytes))
             .take(header.num_authorities as usize)
-            .collect::<Result<Vec<Record>, RecordError>>()?;
+            .collect::<std::result::Result<Vec<Record>, crate::record::Error>>()?;
 
         let additionals: Vec<Record> = std::iter::repeat_with(|| Record::from_bytes(bytes))
             .take(header.num_additionals as usize)
-            .collect::<Result<Vec<Record>, RecordError>>()?;
+            .collect::<std::result::Result<Vec<Record>, crate::record::Error>>()?;
 
         Ok(Self {
             header,
@@ -96,21 +89,21 @@ impl Message {
     }
 }
 
-/// [`MessageError`] wraps the errors that may be encountered during byte decoding of a [`Message`]
-#[derive(Debug, Error)]
-pub enum MessageError {
+/// Wraps the errors that may be encountered during byte decoding of a [`Message`]
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse message data: {0}")]
     Io(#[from] std::io::Error),
     /// Encountered during header parsing
     #[error(transparent)]
-    Header(#[from] HeaderError),
+    Header(#[from] crate::header::Error),
     /// Encountered during question parsing
     #[error(transparent)]
-    Question(#[from] QuestionError),
+    Question(#[from] crate::question::Error),
     /// Encountered during record parsing
     #[error(transparent)]
-    Record(#[from] RecordError),
+    Record(#[from] crate::record::Error),
 }
 
-type MessageResult<T> = std::result::Result<T, MessageError>;
+pub type Result<T> = std::result::Result<T, Error>;
