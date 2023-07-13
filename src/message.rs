@@ -49,7 +49,7 @@ pub enum MsgSection {
 }
 
 impl Message {
-    /// Reads a [Message] a sequence of bytes
+    /// Reads a [`Message`] a sequence of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> MessageResult<Self> {
         let header = Header::from_bytes(bytes)?;
 
@@ -96,7 +96,7 @@ impl Message {
     }
 }
 
-/// [MessageError] wraps the errors that may be encountered during byte decoding of a [Message]
+/// [`MessageError`] wraps the errors that may be encountered during byte decoding of a [`Message`]
 #[derive(Debug, Error)]
 pub enum MessageError {
     /// Stores an error encountered while using [std::io] traits and structs

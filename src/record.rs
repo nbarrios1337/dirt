@@ -29,7 +29,7 @@ pub struct Record {
 }
 
 impl Record {
-    /// Reads a [Record] from a slice of bytes
+    /// Reads a [`Record`] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         let qname = DomainName::from_bytes(bytes)?;
         let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>()?)?;
@@ -83,7 +83,7 @@ impl Record {
 
 type Result<T> = std::result::Result<T, RecordError>;
 
-/// [RecordError] wraps the errors that may be encountered during byte decoding of a [Record]
+/// [`RecordError`] wraps the errors that may be encountered during byte decoding of a [`Record`]
 #[derive(Debug, Error)]
 pub enum RecordError {
     /// Stores an error encountered while using [std::io] traits and structs

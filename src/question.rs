@@ -67,7 +67,7 @@ pub struct Question {
 }
 
 impl Question {
-    /// Converts a [Question] to owned bytes
+    /// Converts a [`Question`] to owned bytes
     pub fn into_bytes(self) -> Vec<u8> {
         let mut buf = self.qname.into_bytes();
 
@@ -77,7 +77,7 @@ impl Question {
         buf
     }
 
-    /// Reads a [Question] from a slice of bytes
+    /// Reads a [`Question`] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         let qname = DomainName::from_bytes(bytes)?;
         let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>()?)?;
@@ -93,7 +93,7 @@ impl Question {
 
 type Result<T> = std::result::Result<T, QuestionError>;
 
-/// [QuestionError] wraps the errors that may be encountered during byte decoding of a [Question]
+/// [`QuestionError`] wraps the errors that may be encountered during byte decoding of a [`Question`]
 #[derive(Debug, Error)]
 pub enum QuestionError {
     /// Stores an error encountered while using [std::io] traits and structs

@@ -9,7 +9,7 @@ use byteorder::ReadBytesExt;
 
 use thiserror::Error;
 
-/// Labels are the individual nodes or components of a [DomainName]
+/// Labels are the individual nodes or components of a [`DomainName`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Label(String);
 
@@ -44,7 +44,7 @@ impl Label {
     }
 }
 
-/// [LabelError] wraps the errors that may be encountered during byte decoding of a [Label]
+/// [`LabelError`] wraps the errors that may be encountered during byte decoding of a [`Label`]
 #[derive(Debug, Error)]
 pub enum LabelError {
     /// Stores an error encountered while using [std::io] traits and structs
@@ -107,7 +107,7 @@ impl From<DomainName> for String {
 }
 
 impl DomainName {
-    /// Converts a [DomainName] to owned bytes
+    /// Converts a [`DomainName`] to owned bytes
     pub fn into_bytes(self) -> Vec<u8> {
         let mut val: Vec<u8> = self.0.into_iter().flat_map(Label::into_bytes).collect();
         // name bytes have zero octet delimiter
@@ -136,7 +136,7 @@ impl DomainName {
         Ok(name.0)
     }
 
-    /// Reads a [DomainName] from a slice of bytes
+    /// Reads a [`DomainName`] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         // buffers and metadata storage
 
@@ -166,7 +166,7 @@ impl DomainName {
         Ok(Self(labels))
     }
 
-    /// Creates a new [DomainName]
+    /// Creates a new [`DomainName`]
     pub fn new(domain_name: &str) -> Self {
         DomainName::from(domain_name.to_string())
     }
@@ -174,7 +174,7 @@ impl DomainName {
 
 type Result<T> = std::result::Result<T, DomainNameError>;
 
-/// [DomainNameError] wraps the errors that may be encountered during byte decoding of a [DomainName]
+/// [`DomainNameError`] wraps the errors that may be encountered during byte decoding of a [`DomainName`]
 #[derive(Debug, Error)]
 pub enum DomainNameError {
     /// Stores an error encountered while [Label] parsing

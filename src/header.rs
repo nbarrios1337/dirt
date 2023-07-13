@@ -156,7 +156,7 @@ impl Header {
     }
 }
 
-/// [HeaderError] wraps the errors that may be encountered during byte decoding of a [Header]
+/// [`HeaderError`] wraps the errors that may be encountered during byte decoding of a [`Header`]
 #[derive(Debug, Error)]
 pub enum HeaderError {
     /// Stores an error encountered while using [std::io] traits and structs
