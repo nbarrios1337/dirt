@@ -156,15 +156,15 @@ impl Header {
     }
 }
 
-/// [HeaderError] wraps the errors that may be encountered during byte decoding of a [Header]
+/// Wraps the errors that may be encountered during byte decoding of a [`Header`]
 #[derive(Debug, Error)]
-pub enum HeaderError {
+pub enum Error {
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse header data: {0}")]
     Io(#[from] std::io::Error),
 }
 
-type Result<T> = std::result::Result<T, HeaderError>;
+type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(test)]
 mod tests {

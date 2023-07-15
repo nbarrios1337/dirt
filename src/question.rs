@@ -37,13 +37,8 @@
 use std::io::Cursor;
 
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
-use thiserror::Error;
 
-use crate::{
-    dname::{DomainName, DomainNameError},
-    qclass::QClass,
-    qtype::QType,
-};
+use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// Carries the parameters that define what is being asked
 #[derive(Debug, Clone)]
@@ -67,7 +62,7 @@ pub struct Question {
 }
 
 impl Question {
-    /// Converts a [Question] to owned bytes
+    /// Converts a [`Question`] to owned bytes
     pub fn into_bytes(self) -> Vec<u8> {
         let mut buf = self.qname.into_bytes();
 
@@ -77,7 +72,7 @@ impl Question {
         buf
     }
 
-    /// Reads a [Question] from a slice of bytes
+    /// Reads a [`Question`] from a slice of bytes
     pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
         let qname = DomainName::from_bytes(bytes)?;
         let qtype = QType::try_from(bytes.read_u16::<NetworkEndian>()?)?;
@@ -91,17 +86,17 @@ impl Question {
     }
 }
 
-type Result<T> = std::result::Result<T, QuestionError>;
+type Result<T> = std::result::Result<T, Error>;
 
-/// [QuestionError] wraps the errors that may be encountered during byte decoding of a [Question]
-#[derive(Debug, Error)]
-pub enum QuestionError {
+/// Wraps the errors that may be encountered during byte decoding of a [`Question`]
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse question data: {0}")]
     Io(#[from] std::io::Error),
     /// Stores an error encountered while parsing the [DomainName]
     #[error(transparent)]
-    Name(#[from] DomainNameError),
+    Name(#[from] crate::dname::Error),
     /// Stores an error encountered while parsin the [QType]
     #[error("Failed to convert primitive to QType: {0}")]
     Type(#[from] num_enum::TryFromPrimitiveError<QType>),
