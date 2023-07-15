@@ -1,4 +1,5 @@
 use clap::Parser;
+use tracing_subscriber::prelude::*;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -8,10 +9,16 @@ struct Arguments {
 }
 
 fn main() {
-    let tracing_subcriber = tracing_subscriber::FmtSubscriber::new();
-    if let Err(e) = tracing::subscriber::set_global_default(tracing_subcriber) {
-        panic!("{e}")
-    };
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .compact()
+        .with_target(false);
+
+    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(filter_layer)
+        .init();
 
     let args = Arguments::parse();
 
