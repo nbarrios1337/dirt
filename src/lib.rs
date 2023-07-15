@@ -84,7 +84,7 @@ pub fn lookup_domain(domain_name: &str) -> message::Result<std::net::IpAddr> {
 }
 
 pub fn resolve(domain_name: &str, record_type: QType) -> message::Result<std::net::IpAddr> {
-    let mut nameserver = "198.41.0.4".parse::<std::net::IpAddr>().unwrap();
+    let mut nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 41, 0, 4));
     loop {
         println!("Querying {nameserver} for {domain_name}");
         let resp = send_query(domain_name, nameserver, record_type)?;
@@ -112,7 +112,7 @@ pub fn resolve(domain_name: &str, record_type: QType) -> message::Result<std::ne
 fn print_bytes_as_hex(bytes: &[u8]) {
     eprint!("0x");
     for b in bytes {
-        eprint!("{b:02X?}")
+        eprint!("{b:02X?}");
     }
     eprintln!();
 }

@@ -130,7 +130,7 @@ impl DomainName {
     pub fn into_bytes(self) -> Vec<u8> {
         let mut val: Vec<u8> = self.0.into_iter().flat_map(Label::into_bytes).collect();
         // name bytes have zero octet delimiter
-        val.push(DomainName::TERMINATOR);
+        val.push(Self::TERMINATOR);
         val
     }
 
@@ -148,7 +148,7 @@ impl DomainName {
 
         // get name
         bytes.seek(SeekFrom::Start(name_pos as u64))?;
-        let name = DomainName::from_bytes(bytes)?;
+        let name = Self::from_bytes(bytes)?;
 
         // reset to current pos
         bytes.seek(SeekFrom::Start(old_pos))?;
@@ -170,7 +170,7 @@ impl DomainName {
                     labels.extend(Self::read_compressed_label(bytes, size)?);
                     break;
                 }
-                DomainName::TERMINATOR => {
+                Self::TERMINATOR => {
                     break;
                 }
                 _ => {
@@ -187,7 +187,7 @@ impl DomainName {
 
     /// Creates a new [`DomainName`]
     pub fn new(domain_name: &str) -> Self {
-        DomainName::from(domain_name.to_string())
+        Self::from(domain_name.to_string())
     }
 }
 
