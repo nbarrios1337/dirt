@@ -3,6 +3,7 @@ mod header;
 mod message;
 mod qclass;
 mod qtype;
+mod query;
 mod question;
 mod record;
 
@@ -11,41 +12,12 @@ use std::{
     net::{ToSocketAddrs, UdpSocket},
 };
 
-use rand::Rng;
+use query::Query;
 
 use crate::{
-    dname::DomainName,
-    header::Header,
     message::{Message, MsgSection},
     qtype::QType,
-    question::Question,
 };
-
-pub fn build_query(domain_name: &str, record_type: QType, flags: u16) -> Vec<u8> {
-    let id: u16 = rand::thread_rng().gen();
-    let header = Header {
-        id,
-        flags,
-        num_questions: 1,
-        num_answers: 0,
-        num_authorities: 0,
-        num_additionals: 0,
-    };
-
-    let name = DomainName::new(domain_name);
-    let question = Question {
-        qname: name,
-        qclass: qclass::QClass::IN,
-        qtype: record_type,
-    };
-
-    let mut header_bytes = header.into_bytes();
-    let mut question_bytes = question.into_bytes();
-    let mut buf = Vec::with_capacity(header_bytes.len() + question_bytes.len());
-    buf.append(&mut header_bytes);
-    buf.append(&mut question_bytes);
-    buf
-}
 
 /// Returns a ready-to-use UDP socket connected to the given address
 fn setup_udp_socket_to(dns_server_addr: impl ToSocketAddrs) -> std::io::Result<UdpSocket> {
@@ -54,20 +26,14 @@ fn setup_udp_socket_to(dns_server_addr: impl ToSocketAddrs) -> std::io::Result<U
     Ok(udp_sock)
 }
 
-fn send_query(
-    desired_addr: &str,
-    server_addr: std::net::IpAddr,
-    record_type: QType,
-) -> message::Result<Message> {
-    let query = build_query(desired_addr, record_type, 0);
-
+fn send_query(query: Query, server_addr: std::net::IpAddr) -> message::Result<Message> {
     let socket_addr = std::net::SocketAddr::from((server_addr, 53));
 
     // connection setup
     let udp_sock = setup_udp_socket_to(socket_addr)?;
 
     // query request
-    udp_sock.send(&query)?;
+    udp_sock.send(&query.into_bytes())?;
 
     // get response
     let mut recv_buf = [0u8; 1024];
@@ -87,7 +53,8 @@ pub fn resolve(domain_name: &str, record_type: QType) -> message::Result<std::ne
     let mut nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 41, 0, 4));
     loop {
         println!("Querying {nameserver} for {domain_name}");
-        let resp = send_query(domain_name, nameserver, record_type)?;
+        let query = Query::new(domain_name, record_type, 0);
+        let resp = send_query(query, nameserver)?;
 
         if let Some(domain_ip_rr) = resp.get_record_by_type_from(QType::A, MsgSection::Answers) {
             return Ok(domain_ip_rr.data_as_ip_addr());
@@ -128,7 +95,8 @@ mod tests {
     fn test_build_query() -> std::fmt::Result {
         let correct_bytes_str =
             "82980100000100000000000003777777076578616d706c6503636f6d0000010001";
-        let query_bytes = build_query("www.example.com", qtype::QType::A, RECURSION_DESIRED);
+        let query = Query::new("www.example.com", qtype::QType::A, RECURSION_DESIRED);
+        let query_bytes = query.into_bytes();
 
         let mut query_bytes_str = String::with_capacity(correct_bytes_str.len());
 
@@ -150,7 +118,8 @@ mod tests {
 
     #[test]
     fn test_send_query() -> std::io::Result<()> {
-        let query_bytes = build_query("www.example.com", qtype::QType::A, RECURSION_DESIRED);
+        let query = Query::new("www.example.com", qtype::QType::A, RECURSION_DESIRED);
+        let query_bytes = query.into_bytes();
 
         // connection setup
         let udp_sock = setup_udp_socket_to("8.8.8.8:53").expect("Failed to setup UDP socket");
