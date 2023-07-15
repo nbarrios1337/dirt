@@ -9,7 +9,7 @@ mod record;
 
 use std::{
     io::Cursor,
-    net::{ToSocketAddrs, UdpSocket},
+    net::{SocketAddr, UdpSocket},
 };
 
 use query::Query;
@@ -20,8 +20,11 @@ use crate::{
 };
 
 /// Returns a ready-to-use UDP socket connected to the given address
-fn setup_udp_socket_to(dns_server_addr: impl ToSocketAddrs) -> std::io::Result<UdpSocket> {
-    let udp_sock = UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?;
+fn setup_udp_socket_to(dns_server_addr: SocketAddr) -> std::io::Result<UdpSocket> {
+    let udp_sock = match dns_server_addr {
+        SocketAddr::V4(_) => UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?,
+        SocketAddr::V6(_) => UdpSocket::bind((std::net::Ipv6Addr::UNSPECIFIED, 0))?,
+    };
     udp_sock.connect(dns_server_addr)?;
     Ok(udp_sock)
 }
@@ -122,7 +125,8 @@ mod tests {
         let query_bytes = query.into_bytes();
 
         // connection setup
-        let udp_sock = setup_udp_socket_to("8.8.8.8:53").expect("Failed to setup UDP socket");
+        let udp_sock =
+            setup_udp_socket_to("8.8.8.8:53".parse().unwrap()).expect("Failed to setup UDP socket");
 
         // query request
         udp_sock.send(&query_bytes).expect("Couldn't send query");
