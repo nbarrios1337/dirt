@@ -96,14 +96,6 @@ pub fn resolve(domain_name: &str, record_type: QType) -> message::Result<std::ne
     }
 }
 
-fn print_bytes_as_hex(bytes: &[u8]) {
-    eprint!("0x");
-    for b in bytes {
-        eprint!("{b:02X?}");
-    }
-    eprintln!();
-}
-
 #[cfg(test)]
 mod tests {
     use crate::*;
