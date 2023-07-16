@@ -55,23 +55,40 @@ pub fn lookup_domain(domain_name: &str) -> message::Result<std::net::IpAddr> {
 pub fn resolve(domain_name: &str, record_type: QType) -> message::Result<std::net::IpAddr> {
     let mut nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 41, 0, 4));
     loop {
-        println!("Querying {nameserver} for {domain_name}");
+        tracing::info!("Querying {nameserver} for \"{domain_name}\"");
         let query = Query::new(domain_name, record_type, 0);
         let resp = send_query(query, nameserver)?;
 
         if let Some(domain_ip_rr) = resp.get_record_by_type_from(QType::A, MsgSection::Answers) {
+            tracing::debug!(
+                "Found answer for \"{domain_name}\": {}",
+                domain_ip_rr.data_as_ip_addr()
+            );
             return Ok(domain_ip_rr.data_as_ip_addr());
         } else if let Some(ns_ip_rr) =
             resp.get_record_by_type_from(QType::A, MsgSection::Additionals)
         {
             nameserver = ns_ip_rr.data_as_ip_addr();
+            tracing::debug!("Referred to new nameserver: {nameserver}")
         } else if let Some(ns_dname_rr) =
             resp.get_record_by_type_from(QType::NS, MsgSection::Authorities)
         {
+            tracing::debug!(
+                "Found name for new nameserver: \"{}\"",
+                ns_dname_rr.data_as_str()
+            );
             nameserver = resolve(ns_dname_rr.data_as_str(), record_type)?;
+            tracing::debug!(
+                "Resolved new namserver \"{}\": {nameserver}",
+                ns_dname_rr.data_as_str()
+            )
         } else if let Some(cname_rr) =
             resp.get_record_by_type_from(QType::CNAME, MsgSection::Answers)
         {
+            tracing::debug!(
+                "Found alias \"{}\" for \"{domain_name}\"",
+                cname_rr.data_as_str()
+            );
             return resolve(cname_rr.data_as_str(), record_type);
         } else {
             panic!("Unexpected resolver error\nreceived: {resp:#?}")
