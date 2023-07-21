@@ -30,14 +30,10 @@ mod label {
         }
 
         pub fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> Result<Self> {
-            bytes.read_exact(dest).map_err(|source| {
-                let mut owned_bytes = Cursor::new(bytes.get_ref().to_vec());
-                owned_bytes.set_position(bytes.position());
-                Error::Io {
-                    src_bytes: owned_bytes,
-                    dest_amt: dest.len(),
-                    source,
-                }
+            bytes.read_exact(dest).map_err(|source| Error::Io {
+                src_amt: bytes.get_ref()[bytes.position() as usize..].len(),
+                dest_amt: dest.len(),
+                source,
             })?;
             let label = std::str::from_utf8(dest)
                 .map_err(|source| Error::Convert {
@@ -59,9 +55,9 @@ mod label {
     #[derive(Debug, Error)]
     pub enum Error {
         /// Stores an error encountered while using [std::io] traits and structs
-        #[error("Failed to read {dest_amt} bytes from {src_bytes:?}:\n\t{source}")]
+        #[error("Failed to read {dest_amt} bytes from {src_amt} byte buffer:\n\t{source}")]
         Io {
-            src_bytes: Cursor<Vec<u8>>,
+            src_amt: usize,
             dest_amt: usize,
             source: std::io::Error,
         },
@@ -138,11 +134,7 @@ impl DomainName {
         size & 0b1100_0000 == 0b1100_0000
     }
 
-    fn read_compressed_label(bytes: &mut Cursor<&[u8]>, size: u8) -> Result<Vec<Label>> {
-        // get pointed-to name
-        let second = bytes.read_u8()?;
-        let name_pos = u16::from_be_bytes([size & 0b0011_1111, second]);
-
+    fn read_compressed_label(bytes: &mut Cursor<&[u8]>, name_pos: u16) -> Result<Vec<Label>> {
         // save current pos
         let old_pos = bytes.position();
 
@@ -167,7 +159,10 @@ impl DomainName {
 
             match size {
                 size if Self::is_compressed(size) => {
-                    labels.extend(Self::read_compressed_label(bytes, size)?);
+                    // get pointed-to name
+                    let second = bytes.read_u8()?;
+                    let name_pos = u16::from_be_bytes([size & 0b0011_1111, second]);
+                    labels.extend(Self::read_compressed_label(bytes, name_pos)?);
                     break;
                 }
                 Self::TERMINATOR => {

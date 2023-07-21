@@ -57,7 +57,10 @@ pub fn resolve(domain_name: &str, record_type: QType) -> message::Result<std::ne
     loop {
         tracing::info!("Querying {nameserver} for \"{domain_name}\"");
         let query = Query::new(domain_name, record_type, 0);
+        tracing::debug!("Sending query: {query:?}");
         let resp = send_query(query, nameserver)?;
+
+        tracing::debug!("Received response: {:?}", resp.header);
 
         if let Some(domain_ip_rr) = resp.get_record_by_type_from(QType::A, MsgSection::Answers) {
             tracing::debug!(
