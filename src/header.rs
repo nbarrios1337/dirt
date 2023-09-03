@@ -101,6 +101,92 @@ use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 
 use thiserror::Error;
 
+/// A four bit field that specifies kind of query in this message.
+///
+/// This value is set by the originator of a query and copied into the response.
+#[derive(Debug, Clone, Copy, num_enum::IntoPrimitive, PartialEq, Eq)]
+#[repr(u8)]
+enum OpCode {
+    /// A standard query
+    Query,
+    /// An inverse query
+    InverseQuery,
+    /// A server status request
+    Status,
+    /// Reserved for future use
+    Reserved,
+}
+
+impl Default for OpCode {
+    fn default() -> Self {
+        Self::Query
+    }
+}
+
+impl TryFrom<u8> for OpCode {
+    type Error = String;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Query),
+            1 => Ok(Self::InverseQuery),
+            2 => Ok(Self::Status),
+            3..=15 => Ok(Self::Reserved),
+            invalid => Err(format!("Invalid OpCode value: {invalid}")),
+        }
+    }
+}
+
+/// This 4 bit field is set as part of responses.
+#[derive(Debug, Clone, Copy, num_enum::IntoPrimitive, PartialEq, Eq)]
+#[repr(u8)]
+enum ResponseCode {
+    /// No error condition
+    NoError,
+    /// Format error - The name server was unable to interpret the query.
+    FormErr,
+    /// Server failure - The name server was unable to process this query
+    /// due to a problem with the name server.
+    ServFail,
+    /// Name Error - Meaningful only for responses from an authoritative name server,
+    /// this code signifies that the domain name referenced in the query does not exist.
+    NxDomain,
+    /// Not Implemented - The name server does not support the requested kind of query.
+    NotImp,
+    /// Refused - The name server refuses to perform the specified operation for policy reasons.
+    ///
+    /// For example, a name server may not wish to provide the information
+    /// to the particular requester, or a name server may not wish to perform
+    /// a particular operation (e.g., zone transfer) for particular data.
+    Refused,
+    /// Reserved for future use. (6-15)
+    Reserved,
+}
+
+impl Default for ResponseCode {
+    fn default() -> Self {
+        Self::NoError
+    }
+}
+
+impl TryFrom<u8> for ResponseCode {
+    type Error = String;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::NoError),
+            1 => Ok(Self::FormErr),
+            2 => Ok(Self::ServFail),
+            3 => Ok(Self::NxDomain),
+            4 => Ok(Self::NotImp),
+            5 => Ok(Self::Refused),
+            6..=15 => Ok(Self::Reserved),
+            invalid => Err(format!("Invalid ResponseCode value: {invalid}")),
+        }
+    }
+}
+
+
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
 #[derive(Debug, Clone, Copy)] // TODO what other derives needed?
