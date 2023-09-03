@@ -41,7 +41,7 @@ use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use crate::{dname::DomainName, qclass::QClass, qtype::QType};
 
 /// Carries the parameters that define what is being asked
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Question {
     /// a domain name represented as a sequence of labels,
     /// where each label consists of a length octet followed by that number of octets.
@@ -134,9 +134,7 @@ mod tests {
         let mut bytes = Cursor::new(&b"\x06google\x03com\x00\x00\x01\x00\x01"[..]);
         let result_question = Question::from_bytes(&mut bytes)?;
 
-        assert_eq!(result_question.qname, correct_question.qname);
-        assert_eq!(result_question.qtype, correct_question.qtype);
-        assert_eq!(result_question.qclass, correct_question.qclass);
+        assert_eq!(result_question, correct_question);
         Ok(())
     }
 }

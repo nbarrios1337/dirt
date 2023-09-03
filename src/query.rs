@@ -32,9 +32,8 @@ impl Query {
     pub fn into_bytes(self) -> Vec<u8> {
         let mut header_bytes = self.header.into_bytes();
         let mut question_bytes = self.question.into_bytes();
-        let mut buf = Vec::with_capacity(header_bytes.len() + question_bytes.len());
-        buf.append(&mut header_bytes);
-        buf.append(&mut question_bytes);
-        buf
+
+        header_bytes.append(&mut question_bytes);
+        header_bytes
     }
 }
