@@ -282,12 +282,12 @@ impl TryFrom<u16> for HeaderFlags {
 
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
-#[derive(Debug, Clone, Copy)] // TODO what other derives needed?
+#[derive(Debug, Clone, Copy, PartialEq, Eq)] // TODO what other derives needed?
 pub struct Header {
     /// A 16 bit identifier assigned by the program that generates any kind of query.
     /// This identifier is copied the corresponding reply and can be used by the requester to match up replies to outstanding queries.
     pub id: u16,
-    pub flags: u16, // TODO bitflags?
+    pub flags: HeaderFlags,
     /// An unsigned 16 bit integer specifying the number of entries in the question section.
     pub num_questions: u16,
     /// An unsigned 16 bit integer specifying the number of resource records in the answer section.
@@ -306,7 +306,7 @@ impl Header {
         NetworkEndian::write_u16_into(
             &[
                 self.id,
-                self.flags,
+                u16::from(self.flags),
                 self.num_questions,
                 self.num_answers,
                 self.num_authorities,
@@ -324,6 +324,9 @@ impl Header {
         let [id, flags, num_questions, num_answers, num_authorities, num_additionals]: [u16; 6] =
             buf;
 
+        let flags = HeaderFlags::try_from(flags)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
         Ok(Self {
             id,
             flags,
@@ -332,6 +335,19 @@ impl Header {
             num_authorities,
             num_additionals,
         })
+    }
+}
+
+impl Header {
+    pub fn new(id: u16, flags: HeaderFlags) -> Self {
+        Self {
+            id,
+            flags,
+            num_questions: 1,
+            num_answers: 0,
+            num_authorities: 0,
+            num_additionals: 0,
+        }
     }
 }
 
@@ -353,7 +369,7 @@ mod tests {
     fn encode_header() {
         let header = Header {
             id: 0x1314,
-            flags: 0,
+            flags: HeaderFlags::default(),
             num_questions: 1,
             num_answers: 0,
             num_authorities: 0,
@@ -384,14 +400,12 @@ mod tests {
         // recursion desired
         let expected_flags: u16 = 1 << 8;
 
+        let expected_header =
+            Header::new(expected_id, HeaderFlags::try_from(expected_flags).unwrap());
+
         let result_header = Header::from_bytes(&mut Cursor::new(&test_bytes))?;
 
-        assert_eq!(result_header.id, expected_id);
-        assert_eq!(result_header.flags, expected_flags);
-        assert_eq!(result_header.num_questions, 1);
-        assert_eq!(result_header.num_answers, 0);
-        assert_eq!(result_header.num_authorities, 0);
-        assert_eq!(result_header.num_additionals, 0);
+        assert_eq!(result_header, expected_header);
 
         Ok(())
     }
