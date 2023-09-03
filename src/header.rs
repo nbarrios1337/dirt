@@ -186,6 +186,99 @@ impl TryFrom<u8> for ResponseCode {
     }
 }
 
+/// The set of non-u16 data components of a header
+///
+/// ```text
+///                                1  1  1  1  1  1
+///  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+/// +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+/// |QR|   OpCode  |AA|TC|RD|RA|   Z    |  RespCode |
+/// +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+/// ```
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HeaderFlags {
+    ///A one bit field that specifies whether this message is a query (0), or a response (1).
+    query_response: bool,
+    /// see [OpCode]'s docs for more details
+    op_code: OpCode,
+    /// Authoritative Answer - this bit is valid in responses, and specifies that
+    /// the responding name serveris an authority for the domain name in question section.
+    ///
+    /// Note that the contents of the answer section may have multiple owner names because of aliases.
+    /// The AA bit corresponds to the name which matches the query name,
+    /// or the first owner name in the answer section.
+    auth_answer: bool,
+    /// TrunCation - specifies that this message was truncated due to length
+    /// greater than that permitted on the transmission channel.
+    truncated: bool,
+    /// Recursion Desired - this bit may be set in a query and is copied into the response.
+    ///
+    /// If RD is set, it directs the name server to pursue the query recursively.
+    /// Recursive query support is optional.
+    recursion_desired: bool,
+    /// Recursion Available - this be is set or cleared in a response,
+    /// and denotes whether recursive query support is available in the name server.
+    recursion_avail: bool,
+    /// see [ResponseCode]'s docs for more details
+    response_code: ResponseCode,
+}
+
+impl HeaderFlags {
+    pub fn as_u16(&self) -> u16 {
+        // first u8
+        let higher: u8 = (self.query_response as u8) << 7
+            | u8::from(self.op_code) << 3
+            | (self.auth_answer as u8) << 2
+            | (self.truncated as u8) << 1
+            | self.recursion_desired as u8;
+
+        let lower: u8 = (self.recursion_avail as u8) << 7 | u8::from(self.response_code);
+
+        debug_assert_eq!(
+            self,
+            &Self::from_u16(u16::from_be_bytes([higher, lower])).unwrap()
+        );
+
+        u16::from_be_bytes([higher, lower])
+    }
+
+    pub fn from_u16(bytes: u16) -> std::result::Result<Self, String> {
+        let [higher, lower] = bytes.to_be_bytes();
+
+        let query_response = (higher >> 7) & 1 != 0;
+        let op_code = OpCode::try_from((higher & 0b0111_1000) >> 3)?;
+        let auth_answer = (higher >> 2) & 1 != 0;
+        let truncated = (higher >> 1) & 1 != 0;
+        let recursion_desired = higher & 1 != 0;
+
+        let recursion_avail = (lower >> 7) & 1 != 0;
+        let response_code = ResponseCode::try_from(lower & 0b0111_1111)?;
+
+        Ok(Self {
+            query_response,
+            op_code,
+            auth_answer,
+            truncated,
+            recursion_desired,
+            recursion_avail,
+            response_code,
+        })
+    }
+}
+
+impl From<HeaderFlags> for u16 {
+    fn from(value: HeaderFlags) -> Self {
+        value.as_u16()
+    }
+}
+
+impl TryFrom<u16> for HeaderFlags {
+    type Error = String;
+
+    fn try_from(value: u16) -> std::result::Result<Self, Self::Error> {
+        Self::from_u16(value)
+    }
+}
 
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
