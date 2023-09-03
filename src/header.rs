@@ -101,14 +101,193 @@ use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 
 use thiserror::Error;
 
+/// A four bit field that specifies kind of query in this message.
+///
+/// This value is set by the originator of a query and copied into the response.
+#[derive(Debug, Clone, Copy, num_enum::IntoPrimitive, PartialEq, Eq)]
+#[repr(u8)]
+enum OpCode {
+    /// A standard query
+    Query,
+    /// An inverse query
+    InverseQuery,
+    /// A server status request
+    Status,
+    /// Reserved for future use
+    Reserved,
+}
+
+impl Default for OpCode {
+    fn default() -> Self {
+        Self::Query
+    }
+}
+
+impl TryFrom<u8> for OpCode {
+    type Error = String;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Query),
+            1 => Ok(Self::InverseQuery),
+            2 => Ok(Self::Status),
+            3..=15 => Ok(Self::Reserved),
+            invalid => Err(format!("Invalid OpCode value: {invalid}")),
+        }
+    }
+}
+
+/// This 4 bit field is set as part of responses.
+#[derive(Debug, Clone, Copy, num_enum::IntoPrimitive, PartialEq, Eq)]
+#[repr(u8)]
+enum ResponseCode {
+    /// No error condition
+    NoError,
+    /// Format error - The name server was unable to interpret the query.
+    FormErr,
+    /// Server failure - The name server was unable to process this query
+    /// due to a problem with the name server.
+    ServFail,
+    /// Name Error - Meaningful only for responses from an authoritative name server,
+    /// this code signifies that the domain name referenced in the query does not exist.
+    NxDomain,
+    /// Not Implemented - The name server does not support the requested kind of query.
+    NotImp,
+    /// Refused - The name server refuses to perform the specified operation for policy reasons.
+    ///
+    /// For example, a name server may not wish to provide the information
+    /// to the particular requester, or a name server may not wish to perform
+    /// a particular operation (e.g., zone transfer) for particular data.
+    Refused,
+    /// Reserved for future use. (6-15)
+    Reserved,
+}
+
+impl Default for ResponseCode {
+    fn default() -> Self {
+        Self::NoError
+    }
+}
+
+impl TryFrom<u8> for ResponseCode {
+    type Error = String;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::NoError),
+            1 => Ok(Self::FormErr),
+            2 => Ok(Self::ServFail),
+            3 => Ok(Self::NxDomain),
+            4 => Ok(Self::NotImp),
+            5 => Ok(Self::Refused),
+            6..=15 => Ok(Self::Reserved),
+            invalid => Err(format!("Invalid ResponseCode value: {invalid}")),
+        }
+    }
+}
+
+/// The set of non-u16 data components of a header
+///
+/// ```text
+///                                1  1  1  1  1  1
+///  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+/// +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+/// |QR|   OpCode  |AA|TC|RD|RA|   Z    |  RespCode |
+/// +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+/// ```
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HeaderFlags {
+    ///A one bit field that specifies whether this message is a query (0), or a response (1).
+    query_response: bool,
+    /// see [OpCode]'s docs for more details
+    op_code: OpCode,
+    /// Authoritative Answer - this bit is valid in responses, and specifies that
+    /// the responding name serveris an authority for the domain name in question section.
+    ///
+    /// Note that the contents of the answer section may have multiple owner names because of aliases.
+    /// The AA bit corresponds to the name which matches the query name,
+    /// or the first owner name in the answer section.
+    auth_answer: bool,
+    /// TrunCation - specifies that this message was truncated due to length
+    /// greater than that permitted on the transmission channel.
+    truncated: bool,
+    /// Recursion Desired - this bit may be set in a query and is copied into the response.
+    ///
+    /// If RD is set, it directs the name server to pursue the query recursively.
+    /// Recursive query support is optional.
+    recursion_desired: bool,
+    /// Recursion Available - this be is set or cleared in a response,
+    /// and denotes whether recursive query support is available in the name server.
+    recursion_avail: bool,
+    /// see [ResponseCode]'s docs for more details
+    response_code: ResponseCode,
+}
+
+impl HeaderFlags {
+    pub fn as_u16(&self) -> u16 {
+        // first u8
+        let higher: u8 = (self.query_response as u8) << 7
+            | u8::from(self.op_code) << 3
+            | (self.auth_answer as u8) << 2
+            | (self.truncated as u8) << 1
+            | self.recursion_desired as u8;
+
+        let lower: u8 = (self.recursion_avail as u8) << 7 | u8::from(self.response_code);
+
+        debug_assert_eq!(
+            self,
+            &Self::from_u16(u16::from_be_bytes([higher, lower])).unwrap()
+        );
+
+        u16::from_be_bytes([higher, lower])
+    }
+
+    pub fn from_u16(bytes: u16) -> std::result::Result<Self, String> {
+        let [higher, lower] = bytes.to_be_bytes();
+
+        let query_response = (higher >> 7) & 1 != 0;
+        let op_code = OpCode::try_from((higher & 0b0111_1000) >> 3)?;
+        let auth_answer = (higher >> 2) & 1 != 0;
+        let truncated = (higher >> 1) & 1 != 0;
+        let recursion_desired = higher & 1 != 0;
+
+        let recursion_avail = (lower >> 7) & 1 != 0;
+        let response_code = ResponseCode::try_from(lower & 0b0111_1111)?;
+
+        Ok(Self {
+            query_response,
+            op_code,
+            auth_answer,
+            truncated,
+            recursion_desired,
+            recursion_avail,
+            response_code,
+        })
+    }
+}
+
+impl From<HeaderFlags> for u16 {
+    fn from(value: HeaderFlags) -> Self {
+        value.as_u16()
+    }
+}
+
+impl TryFrom<u16> for HeaderFlags {
+    type Error = String;
+
+    fn try_from(value: u16) -> std::result::Result<Self, Self::Error> {
+        Self::from_u16(value)
+    }
+}
+
 /// The header includes fields that specify which of the remaining sections are present,
 /// and also specifywhether the message is a query or a response, a standard query or some other opcode, etc.
-#[derive(Debug, Clone, Copy)] // TODO what other derives needed?
+#[derive(Debug, Clone, Copy, PartialEq, Eq)] // TODO what other derives needed?
 pub struct Header {
     /// A 16 bit identifier assigned by the program that generates any kind of query.
     /// This identifier is copied the corresponding reply and can be used by the requester to match up replies to outstanding queries.
     pub id: u16,
-    pub flags: u16, // TODO bitflags?
+    pub flags: HeaderFlags,
     /// An unsigned 16 bit integer specifying the number of entries in the question section.
     pub num_questions: u16,
     /// An unsigned 16 bit integer specifying the number of resource records in the answer section.
@@ -127,7 +306,7 @@ impl Header {
         NetworkEndian::write_u16_into(
             &[
                 self.id,
-                self.flags,
+                u16::from(self.flags),
                 self.num_questions,
                 self.num_answers,
                 self.num_authorities,
@@ -145,6 +324,9 @@ impl Header {
         let [id, flags, num_questions, num_answers, num_authorities, num_additionals]: [u16; 6] =
             buf;
 
+        let flags = HeaderFlags::try_from(flags)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
         Ok(Self {
             id,
             flags,
@@ -153,6 +335,19 @@ impl Header {
             num_authorities,
             num_additionals,
         })
+    }
+}
+
+impl Header {
+    pub fn new(id: u16, flags: HeaderFlags) -> Self {
+        Self {
+            id,
+            flags,
+            num_questions: 1,
+            num_answers: 0,
+            num_authorities: 0,
+            num_additionals: 0,
+        }
     }
 }
 
@@ -174,7 +369,7 @@ mod tests {
     fn encode_header() {
         let header = Header {
             id: 0x1314,
-            flags: 0,
+            flags: HeaderFlags::default(),
             num_questions: 1,
             num_answers: 0,
             num_authorities: 0,
@@ -205,14 +400,12 @@ mod tests {
         // recursion desired
         let expected_flags: u16 = 1 << 8;
 
+        let expected_header =
+            Header::new(expected_id, HeaderFlags::try_from(expected_flags).unwrap());
+
         let result_header = Header::from_bytes(&mut Cursor::new(&test_bytes))?;
 
-        assert_eq!(result_header.id, expected_id);
-        assert_eq!(result_header.flags, expected_flags);
-        assert_eq!(result_header.num_questions, 1);
-        assert_eq!(result_header.num_answers, 0);
-        assert_eq!(result_header.num_authorities, 0);
-        assert_eq!(result_header.num_additionals, 0);
+        assert_eq!(result_header, expected_header);
 
         Ok(())
     }
