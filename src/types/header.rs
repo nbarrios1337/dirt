@@ -95,10 +95,6 @@
 //!
 //! See more in [RFC 1035 section 4.1.1](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1)
 
-use std::io::Cursor;
-
-use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
-
 use thiserror::Error;
 
 /// A four bit field that specifies kind of query in this message.
@@ -106,7 +102,7 @@ use thiserror::Error;
 /// This value is set by the originator of a query and copied into the response.
 #[derive(Debug, Clone, Copy, num_enum::IntoPrimitive, PartialEq, Eq)]
 #[repr(u8)]
-enum OpCode {
+pub(crate) enum OpCode {
     /// A standard query
     Query,
     /// An inverse query
@@ -140,7 +136,7 @@ impl TryFrom<u8> for OpCode {
 /// This 4 bit field is set as part of responses.
 #[derive(Debug, Clone, Copy, num_enum::IntoPrimitive, PartialEq, Eq)]
 #[repr(u8)]
-enum ResponseCode {
+pub(crate) enum ResponseCode {
     /// No error condition
     NoError,
     /// Format error - The name server was unable to interpret the query.
@@ -198,86 +194,29 @@ impl TryFrom<u8> for ResponseCode {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct HeaderFlags {
     ///A one bit field that specifies whether this message is a query (0), or a response (1).
-    query_response: bool,
+    pub(crate) query_response: bool,
     /// see [OpCode]'s docs for more details
-    op_code: OpCode,
+    pub(crate) op_code: OpCode,
     /// Authoritative Answer - this bit is valid in responses, and specifies that
     /// the responding name serveris an authority for the domain name in question section.
     ///
     /// Note that the contents of the answer section may have multiple owner names because of aliases.
     /// The AA bit corresponds to the name which matches the query name,
     /// or the first owner name in the answer section.
-    auth_answer: bool,
+    pub(crate) auth_answer: bool,
     /// TrunCation - specifies that this message was truncated due to length
     /// greater than that permitted on the transmission channel.
-    truncated: bool,
+    pub(crate) truncated: bool,
     /// Recursion Desired - this bit may be set in a query and is copied into the response.
     ///
     /// If RD is set, it directs the name server to pursue the query recursively.
     /// Recursive query support is optional.
-    recursion_desired: bool,
+    pub(crate) recursion_desired: bool,
     /// Recursion Available - this be is set or cleared in a response,
     /// and denotes whether recursive query support is available in the name server.
-    recursion_avail: bool,
+    pub(crate) recursion_avail: bool,
     /// see [ResponseCode]'s docs for more details
-    response_code: ResponseCode,
-}
-
-impl HeaderFlags {
-    pub fn as_u16(&self) -> u16 {
-        // first u8
-        let higher: u8 = (self.query_response as u8) << 7
-            | u8::from(self.op_code) << 3
-            | (self.auth_answer as u8) << 2
-            | (self.truncated as u8) << 1
-            | self.recursion_desired as u8;
-
-        let lower: u8 = (self.recursion_avail as u8) << 7 | u8::from(self.response_code);
-
-        debug_assert_eq!(
-            self,
-            &Self::from_u16(u16::from_be_bytes([higher, lower])).unwrap()
-        );
-
-        u16::from_be_bytes([higher, lower])
-    }
-
-    pub fn from_u16(bytes: u16) -> std::result::Result<Self, String> {
-        let [higher, lower] = bytes.to_be_bytes();
-
-        let query_response = (higher >> 7) & 1 != 0;
-        let op_code = OpCode::try_from((higher & 0b0111_1000) >> 3)?;
-        let auth_answer = (higher >> 2) & 1 != 0;
-        let truncated = (higher >> 1) & 1 != 0;
-        let recursion_desired = higher & 1 != 0;
-
-        let recursion_avail = (lower >> 7) & 1 != 0;
-        let response_code = ResponseCode::try_from(lower & 0b0111_1111)?;
-
-        Ok(Self {
-            query_response,
-            op_code,
-            auth_answer,
-            truncated,
-            recursion_desired,
-            recursion_avail,
-            response_code,
-        })
-    }
-}
-
-impl From<HeaderFlags> for u16 {
-    fn from(value: HeaderFlags) -> Self {
-        value.as_u16()
-    }
-}
-
-impl TryFrom<u16> for HeaderFlags {
-    type Error = String;
-
-    fn try_from(value: u16) -> std::result::Result<Self, Self::Error> {
-        Self::from_u16(value)
-    }
+    pub(crate) response_code: ResponseCode,
 }
 
 /// The header includes fields that specify which of the remaining sections are present,
@@ -296,46 +235,6 @@ pub struct Header {
     pub num_authorities: u16,
     /// An unsigned 16 bit integer specifying the number of resource records in the additional records section.
     pub num_additionals: u16,
-}
-
-impl Header {
-    /// Convert a header to owned bytes
-    pub fn into_bytes(self) -> Vec<u8> {
-        // 6 fields, 2 bytes each
-        let mut buf: Vec<u8> = vec![0u8; 6 * std::mem::size_of::<u16>()];
-        NetworkEndian::write_u16_into(
-            &[
-                self.id,
-                u16::from(self.flags),
-                self.num_questions,
-                self.num_answers,
-                self.num_authorities,
-                self.num_additionals,
-            ],
-            &mut buf,
-        );
-        buf
-    }
-
-    /// Reads a header from a slice of bytes
-    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
-        let mut buf = [0u16; 6];
-        bytes.read_u16_into::<NetworkEndian>(&mut buf)?;
-        let [id, flags, num_questions, num_answers, num_authorities, num_additionals]: [u16; 6] =
-            buf;
-
-        let flags = HeaderFlags::try_from(flags)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-
-        Ok(Self {
-            id,
-            flags,
-            num_questions,
-            num_answers,
-            num_authorities,
-            num_additionals,
-        })
-    }
 }
 
 impl Header {
@@ -359,54 +258,4 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
-type Result<T> = std::result::Result<T, Error>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn encode_header() {
-        let header = Header {
-            id: 0x1314,
-            flags: HeaderFlags::default(),
-            num_questions: 1,
-            num_answers: 0,
-            num_authorities: 0,
-            num_additionals: 0,
-        };
-
-        let header_bytes = header.into_bytes();
-
-        let correct_bytes: Vec<u8> =
-            vec![0x13, 0x14, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0];
-
-        assert_eq!(header_bytes, correct_bytes);
-    }
-
-    #[test]
-    fn decode_header() -> Result<()> {
-        let test_bytes = vec![
-            0x82, 0x98, // id
-            0x01, 0x00, // flags
-            0x00, 0x01, // n_q
-            0x00, 0x00, // n_ans
-            0x00, 0x00, // n_auth
-            0x00, 0x00, // n_add
-        ];
-
-        let expected_id = 0x8298;
-
-        // recursion desired
-        let expected_flags: u16 = 1 << 8;
-
-        let expected_header =
-            Header::new(expected_id, HeaderFlags::try_from(expected_flags).unwrap());
-
-        let result_header = Header::from_bytes(&mut Cursor::new(&test_bytes))?;
-
-        assert_eq!(result_header, expected_header);
-
-        Ok(())
-    }
-}
+pub(crate) type Result<T> = std::result::Result<T, Error>;
