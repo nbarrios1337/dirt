@@ -3,51 +3,20 @@
 //! See more in [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034)
 //! and [RFC 1035 section 3.1](https://datatracker.ietf.org/doc/html/rfc1035#section-3.1)
 
-mod label {
-    use std::io::{Cursor, Read};
+pub(crate) mod label {
 
     use thiserror::Error;
 
     /// Labels are the individual nodes or components of a [`DomainName`]
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct Label(String);
-
-    impl Label {
-        pub fn new(string: String) -> Self {
-            Self(string)
-        }
-    }
+    pub(crate) struct Label(pub(crate) String);
 
     impl Label {
         /// The maximum size of a single label within a domain name
         pub const MAX_LABEL_SIZE: usize = 63;
 
-        pub fn into_bytes(self) -> Vec<u8> {
-            let size = self.0.len();
-            let mut buf = self.0.into_bytes();
-            buf.splice(0..0, [size as u8]);
-            buf
-        }
-
-        pub fn read_label(bytes: &mut Cursor<&[u8]>, dest: &mut [u8]) -> Result<Self> {
-            bytes.read_exact(dest).map_err(|source| Error::Io {
-                src_amt: bytes.get_ref()[bytes.position() as usize..].len(),
-                dest_amt: dest.len(),
-                source,
-            })?;
-            let label = std::str::from_utf8(dest)
-                .map_err(|source| Error::Convert {
-                    bytes: dest.to_vec(),
-                    source,
-                })?
-                .to_string();
-            Ok(Self(label))
-        }
-    }
-
-    impl ToString for Label {
-        fn to_string(&self) -> String {
-            self.0.clone()
+        pub fn new(string: String) -> Self {
+            Self(string)
         }
     }
 
@@ -69,19 +38,16 @@ mod label {
         },
     }
 
-    type Result<T> = std::result::Result<T, Error>;
+    pub(crate) type Result<T> = std::result::Result<T, Error>;
 }
 
-use label::Label;
+pub(crate) use label::Label;
 
-use std::io::{Cursor, Seek, SeekFrom};
-
-use byteorder::ReadBytesExt;
 use thiserror::Error;
 
 /// Domain names define a name of a node in requests and responses
 #[derive(Clone, PartialEq, Eq)]
-pub struct DomainName(Vec<Label>);
+pub struct DomainName(pub(crate) Vec<Label>);
 
 impl DomainName {
     /// The maximum number of octets that represent a domain name (i.e., the sum of all label octets and label lengths)
@@ -99,85 +65,9 @@ impl std::fmt::Debug for DomainName {
     }
 }
 
-impl From<String> for DomainName {
-    fn from(value: String) -> Self {
-        Self(
-            value
-                .split('.')
-                .map(|substr| Label::new(substr.to_string()))
-                .collect(),
-        )
-    }
-}
-
-impl From<DomainName> for String {
-    fn from(value: DomainName) -> Self {
-        value
-            .0
-            .into_iter()
-            .map(|label| label.to_string())
-            .reduce(|acc, label_str| acc + "." + &label_str)
-            .unwrap_or_default()
-    }
-}
-
 impl DomainName {
-    /// Converts a [`DomainName`] to owned bytes
-    pub fn into_bytes(self) -> Vec<u8> {
-        let mut val: Vec<u8> = self.0.into_iter().flat_map(Label::into_bytes).collect();
-        // name bytes have zero octet delimiter
-        val.push(Self::TERMINATOR);
-        val
-    }
-
     pub const fn is_compressed(size: u8) -> bool {
         size & 0b1100_0000 == 0b1100_0000
-    }
-
-    fn read_compressed_label(bytes: &mut Cursor<&[u8]>, name_pos: u16) -> Result<Vec<Label>> {
-        // save current pos
-        let old_pos = bytes.position();
-
-        // get name
-        bytes.seek(SeekFrom::Start(name_pos as u64))?;
-        let name = Self::from_bytes(bytes)?;
-
-        // reset to current pos
-        bytes.seek(SeekFrom::Start(old_pos))?;
-        Ok(name.0)
-    }
-
-    /// Reads a [`DomainName`] from a slice of bytes
-    pub fn from_bytes(bytes: &mut Cursor<&[u8]>) -> Result<Self> {
-        // buffers and metadata storage
-
-        let mut label_bytes_buffer = [0u8; Label::MAX_LABEL_SIZE];
-        let mut labels = Vec::new();
-
-        loop {
-            let size = bytes.read_u8()?;
-
-            match size {
-                size if Self::is_compressed(size) => {
-                    // get pointed-to name
-                    let second = bytes.read_u8()?;
-                    let name_pos = u16::from_be_bytes([size & 0b0011_1111, second]);
-                    labels.extend(Self::read_compressed_label(bytes, name_pos)?);
-                    break;
-                }
-                Self::TERMINATOR => {
-                    break;
-                }
-                _ => {
-                    let dest = &mut label_bytes_buffer[..size as usize];
-                    let label = Label::read_label(bytes, dest)
-                        .map_err(|source| Error::Label { size, source })?;
-                    labels.push(label);
-                }
-            }
-        }
-
-        Ok(Self(labels))
     }
 
     /// Creates a new [`DomainName`]
@@ -186,7 +76,7 @@ impl DomainName {
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 /// Wraps the errors that may be encountered during byte decoding of a [`DomainName`]
 #[derive(Debug, Error)]
@@ -201,33 +91,4 @@ pub enum Error {
     /// Stores an error encountered while using [std::io] traits and structs
     #[error("Failed to parse domain name data:\n\t{0}")]
     Io(#[from] std::io::Error),
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Tests encoding of "google.com"
-    #[test]
-    fn encode_dname() {
-        let correct_bytes = b"\x06google\x03com\x00";
-
-        let google_domain = DomainName::new("google.com");
-        let result_bytes = google_domain.into_bytes();
-
-        assert_eq!(result_bytes, correct_bytes);
-    }
-
-    /// Tests decoding of "google.com"
-    #[test]
-    fn decode_dname() -> Result<()> {
-        let correct_dname = DomainName::new("google.com");
-        let mut google_domain_bytes = Cursor::new(&b"\x06google\x03com\x00"[..]);
-
-        let result_dname = DomainName::from_bytes(&mut google_domain_bytes)?;
-
-        assert_eq!(result_dname, correct_dname);
-
-        Ok(())
-    }
 }
