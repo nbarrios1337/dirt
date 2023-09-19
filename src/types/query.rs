@@ -18,7 +18,7 @@ impl Query {
     /// Creates a new [`Query`] for available records of the specified type, for the specified domain name.
     pub fn new(domain_name: &str, record_type: QType, flags: u16) -> Self {
         let id: u16 = rand::thread_rng().gen();
-        let header = Header::new(id, HeaderFlags::from_u16(flags).unwrap());
+        let header = Header::new(id, HeaderFlags::try_from(flags).unwrap());
 
         let name = DomainName::new(domain_name);
         let question = Question {
