@@ -41,15 +41,23 @@ fn main() {
 
 /// Returns a ready-to-use UDP socket connected to the given address
 fn setup_udp_socket_to(dns_server_addr: SocketAddr) -> std::io::Result<UdpSocket> {
+    tracing::trace!("Attempting connection to {dns_server_addr}");
+
     let udp_sock = match dns_server_addr {
         SocketAddr::V4(_) => UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?,
         SocketAddr::V6(_) => UdpSocket::bind((std::net::Ipv6Addr::UNSPECIFIED, 0))?,
     };
+
+    tracing::trace!("Bound to local addr: {}", udp_sock.local_addr().unwrap());
+
     udp_sock.connect(dns_server_addr)?;
+    tracing::trace!("Connected to remote addr: {dns_server_addr}");
+
     Ok(udp_sock)
 }
 
 fn send_query(query: Query, server_addr: std::net::IpAddr) -> MsgResult<Message> {
+    tracing::trace!("To {server_addr}, sending query: {query:?}");
     let socket_addr = std::net::SocketAddr::from((server_addr, 53));
 
     // connection setup
@@ -165,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_resolve() -> MsgResult<()> {
-        let result_ip = resolve("www.example.com", QType::A)?;
+        let result_ip = resolve("www.example.com", QType::A).expect("Failed to resolve");
         let correct_ip = "93.184.216.34".parse::<std::net::Ipv4Addr>().unwrap();
         assert_eq!(result_ip, correct_ip);
         Ok(())
@@ -174,7 +182,7 @@ mod tests {
     #[test]
     fn test_cname() -> MsgResult<()> {
         // facebook has multiple IP addrs, no sense checking for any possible one.
-        let _ = lookup_domain("www.facebook.com")?;
+        let _ = lookup_domain("www.facebook.com").expect("Failed to lookup domain");
         Ok(())
     }
 }
