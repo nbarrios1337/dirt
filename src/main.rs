@@ -76,8 +76,8 @@ pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpA
     let mut nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 41, 0, 4));
     loop {
         tracing::info!("Querying {nameserver} for \"{domain_name}\"");
-        let query = Query::new(domain_name, record_type, 0);
-        tracing::debug!("Sending query: {query:?}");
+        let query = Query::new(domain_name, record_type, false, false);
+
         let resp = send_query(query, nameserver)?;
 
         tracing::debug!("Received response: {:?}", resp.header);
@@ -123,14 +123,11 @@ pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpA
 mod tests {
     use crate::*;
 
-    // endianness clarification: 7th MSB of the 3rd octet is 9 bits away from bit 15.
-    const RECURSION_DESIRED: u16 = 1 << 8;
-
     #[test]
     fn test_build_query() -> std::fmt::Result {
         let correct_bytes_str =
             "82980100000100000000000003777777076578616d706c6503636f6d0000010001";
-        let query = Query::new("www.example.com", dirt::qtype::QType::A, RECURSION_DESIRED);
+        let query = Query::new("www.example.com", dirt::qtype::QType::A, false, true);
         let query_bytes = query.into_bytes();
 
         let mut query_bytes_str = String::with_capacity(correct_bytes_str.len());
@@ -153,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_send_query() -> std::io::Result<()> {
-        let query = Query::new("www.example.com", dirt::qtype::QType::A, RECURSION_DESIRED);
+        let query = Query::new("www.example.com", dirt::qtype::QType::A, false, true);
         let query_bytes = query.into_bytes();
 
         // connection setup

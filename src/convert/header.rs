@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 
-use crate::header::{Header, HeaderFlags, OpCode, ResponseCode, Result};
+use crate::header::{Header, HeaderFlags, Result};
 
 impl HeaderFlags {
     fn as_u16(&self) -> u16 {
@@ -23,27 +23,18 @@ impl HeaderFlags {
         u16::from_be_bytes([higher, lower])
     }
 
-    fn from_u16(bytes: u16) -> std::result::Result<Self, String> {
+    fn from_u16(bytes: u16) -> Result<Self> {
         let [higher, lower] = bytes.to_be_bytes();
 
-        let query_response = (higher >> 7) & 1 != 0;
-        let op_code = OpCode::try_from((higher & 0b0111_1000) >> 3)?;
-        let auth_answer = (higher >> 2) & 1 != 0;
-        let truncated = (higher >> 1) & 1 != 0;
-        let recursion_desired = higher & 1 != 0;
-
-        let recursion_avail = (lower >> 7) & 1 != 0;
-        let response_code = ResponseCode::try_from(lower & 0b0111_1111)?;
-
-        Ok(Self {
-            query_response,
-            op_code,
-            auth_answer,
-            truncated,
-            recursion_desired,
-            recursion_avail,
-            response_code,
-        })
+        Ok(Self::default()
+            .set_qr((higher >> 7) & 1 != 0)
+            .set_op_code((higher & 0b0111_1000) >> 3)?
+            .set_authoritative((higher >> 2) & 1 != 0)
+            .set_truncated((higher >> 1) & 1 != 0)
+            .set_recursion_desired(higher & 1 != 0)
+            .set_recursion_avail((lower >> 7) & 1 != 0)
+            .set_response_code(lower & 0b0111_1111)?
+            .to_owned())
     }
 }
 
@@ -54,9 +45,9 @@ impl From<HeaderFlags> for u16 {
 }
 
 impl TryFrom<u16> for HeaderFlags {
-    type Error = String;
+    type Error = crate::header::Error;
 
-    fn try_from(value: u16) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: u16) -> Result<Self> {
         Self::from_u16(value)
     }
 }
