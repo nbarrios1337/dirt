@@ -267,16 +267,20 @@ impl HeaderFlags {
         self
     }
 
-    /// Sets the [OpCode] for this header
+    /// Sets the [`OpCode`] for this header
     pub fn set_op_code(&mut self, op: u8) -> Result<&mut Self> {
         self.op_code = OpCode::try_from(op)?;
         Ok(self)
     }
 
-    /// Sets the [ResponseCode] for this header
+    /// Sets the [`ResponseCode`] for this header
     pub fn set_response_code(&mut self, resp: u8) -> Result<&mut Self> {
         self.response_code = ResponseCode::try_from(resp)?;
         Ok(self)
+    }
+
+    pub fn finalize(&mut self) -> Self {
+        *self
     }
 }
 
@@ -321,7 +325,7 @@ impl Header {
                 .set_op_code(query_type)?
                 .set_authoritative(authoritative)
                 .set_recursion_desired(recursion_desired)
-                .to_owned(),
+                .finalize(),
             num_questions: 1,
             num_answers: 0,
             num_authorities: 0,

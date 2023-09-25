@@ -100,7 +100,7 @@ pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpA
             resp.get_record_by_type_from(QType::A, MsgSection::Additionals)
         {
             nameserver = ns_ip_rr.data_as_ip_addr();
-            tracing::debug!("Referred to new nameserver: {nameserver}")
+            tracing::debug!("Referred to new nameserver: {nameserver}");
         } else if let Some(ns_dname_rr) =
             resp.get_record_by_type_from(QType::NS, MsgSection::Authorities)
         {
@@ -112,7 +112,7 @@ pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpA
             tracing::debug!(
                 "Resolved new namserver \"{}\": {nameserver}",
                 ns_dname_rr.data_as_str()
-            )
+            );
         } else if let Some(cname_rr) =
             resp.get_record_by_type_from(QType::CNAME, MsgSection::Answers)
         {

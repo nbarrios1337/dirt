@@ -5,7 +5,7 @@ use byteorder::{ByteOrder, NetworkEndian, ReadBytesExt};
 use crate::header::{Header, HeaderFlags, Result};
 
 impl HeaderFlags {
-    fn as_u16(&self) -> u16 {
+    fn as_u16(self) -> u16 {
         // first u8
         let higher: u8 = (self.query_response as u8) << 7
             | u8::from(self.op_code) << 3
@@ -17,7 +17,7 @@ impl HeaderFlags {
 
         debug_assert_eq!(
             self,
-            &Self::from_u16(u16::from_be_bytes([higher, lower])).unwrap()
+            Self::from_u16(u16::from_be_bytes([higher, lower])).unwrap()
         );
 
         u16::from_be_bytes([higher, lower])
@@ -34,7 +34,7 @@ impl HeaderFlags {
             .set_recursion_desired(higher & 1 != 0)
             .set_recursion_avail((lower >> 7) & 1 != 0)
             .set_response_code(lower & 0b0111_1111)?
-            .to_owned())
+            .finalize())
     }
 }
 
