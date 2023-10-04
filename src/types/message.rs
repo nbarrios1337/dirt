@@ -1,4 +1,7 @@
-use crate::{header::Header, qtype::QType, question::Question, record::Record};
+use crate::{
+    dname::DomainName, header::Header, qclass::QClass, qtype::QType, question::Question,
+    record::Record,
+};
 
 /// All communications inside of the domain protocol are carried in a single format called a message.
 ///
@@ -37,6 +40,33 @@ pub enum MsgSection {
     Answers,
     Authorities,
     Additionals,
+}
+
+// ctors
+impl Message {
+    /// Creates a new [`Message`] containing a single [`Question`]
+    pub fn new_query(
+        domain_name: &str,
+        record_type: QType,
+        authoritative: bool,
+        recursion_desired: bool,
+    ) -> Self {
+        let header = Header::gen_query_header(0, authoritative, recursion_desired).unwrap();
+        let name = DomainName::new(domain_name);
+        let question = Question {
+            qname: name,
+            qclass: QClass::IN,
+            qtype: record_type,
+        };
+
+        Self {
+            header,
+            questions: vec![question],
+            answers: vec![],
+            authorities: vec![],
+            additionals: vec![],
+        }
+    }
 }
 
 // querying data

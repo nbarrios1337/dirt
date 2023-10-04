@@ -36,4 +36,19 @@ impl Message {
             additionals,
         })
     }
+
+    /// Converts a query [`Message`] to owned bytes
+    pub fn query_into_bytes(self) -> Vec<u8> {
+        assert_eq!(self.questions.len(), 1);
+        assert_eq!(self.answers.len(), 0);
+        assert_eq!(self.authorities.len(), 0);
+        assert_eq!(self.additionals.len(), 0);
+
+        // header
+        let mut buf = self.header.into_bytes();
+
+        // questions
+        buf.extend(self.questions.into_iter().flat_map(|q| q.into_bytes()));
+        buf
+    }
 }

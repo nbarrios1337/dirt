@@ -60,10 +60,11 @@ mod tests {
 
         let mut rec_bytes_reader = Cursor::new(&record_bytes[..]);
         let hdr = crate::header::Header::from_bytes(&mut rec_bytes_reader).unwrap();
-        eprintln!("{hdr:?}");
+        eprintln!("header: {hdr:?}");
         let q = crate::question::Question::from_bytes(&mut rec_bytes_reader).unwrap();
-        eprintln!("{q:?}");
+        eprintln!("question: {q:?}");
         let result_record = Record::from_bytes(&mut rec_bytes_reader)?;
+        eprintln!("record: {result_record:?}");
 
         assert_eq!(result_record, correct_record);
         Ok(())
