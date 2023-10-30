@@ -71,6 +71,12 @@ impl Message {
 
 // querying data
 impl Message {
+    pub fn get_query(&self) -> &Question {
+        self.questions
+            .first()
+            .expect("Query messages should have a Question")
+    }
+
     pub fn get_records(&self, section: MsgSection) -> &[Record] {
         match section {
             MsgSection::Answers => &self.answers,

@@ -39,35 +39,41 @@ fn main() {
 }
 
 /// Returns a ready-to-use UDP socket connected to the given address
+#[tracing::instrument]
 fn setup_udp_socket_to(dns_server_addr: SocketAddr) -> std::io::Result<UdpSocket> {
-    tracing::trace!("Attempting connection to {dns_server_addr}");
-
     let udp_sock = match dns_server_addr {
         SocketAddr::V4(_) => UdpSocket::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))?,
         SocketAddr::V6(_) => UdpSocket::bind((std::net::Ipv6Addr::UNSPECIFIED, 0))?,
     };
 
-    tracing::trace!("Bound to local addr: {}", udp_sock.local_addr().unwrap());
+    tracing::trace!(
+        "Successfully bound to local addr: {}",
+        udp_sock.local_addr().unwrap()
+    );
 
     udp_sock.connect(dns_server_addr)?;
-    tracing::trace!("Connected to remote addr: {dns_server_addr}");
+    tracing::trace!("Successfully connected to remote addr: {dns_server_addr}");
 
     Ok(udp_sock)
 }
 
+#[tracing::instrument(fields(question = query.get_query().qname.to_string()), skip(query))]
 fn send_query(query: Message, server_addr: std::net::IpAddr) -> MsgResult<Message> {
-    tracing::trace!("To {server_addr}, sending query: {query:?}");
     let socket_addr = std::net::SocketAddr::from((server_addr, 53));
 
     // connection setup
     let udp_sock = setup_udp_socket_to(socket_addr)?;
 
     // query request
+    tracing::trace!("Sending query for {:?} via {udp_sock:?}", query.get_query());
     udp_sock.send(&query.query_into_bytes())?;
+    tracing::trace!("Query sent successfully");
 
     // get response
     let mut recv_buf = [0u8; 1024];
+    tracing::trace!("Beginning to parse response");
     let bytes_recv = udp_sock.recv(&mut recv_buf)?;
+    tracing::trace!("Received {bytes_recv} bytes in response");
 
     // parse response to message
     let mut msg_bytes_reader = Cursor::new(&recv_buf[..bytes_recv]);

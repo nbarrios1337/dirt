@@ -65,6 +65,12 @@ impl std::fmt::Debug for DomainName {
     }
 }
 
+impl std::fmt::Display for DomainName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", &String::from(self.clone()))
+    }
+}
+
 impl DomainName {
     pub const fn is_compressed(size: u8) -> bool {
         size & 0b1100_0000 == 0b1100_0000
