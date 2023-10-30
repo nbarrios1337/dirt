@@ -16,12 +16,13 @@ use dirt::{
 struct Arguments {
     /// Requested domain name
     request: String,
+    /// Requested IP V6 domains
+    #[arg(short = '6', long = "ipv6", default_value_t)]
+    ip_v6: bool,
 }
 
 fn main() {
-    let fmt_layer = tracing_subscriber::fmt::layer()
-        .compact()
-        .with_target(false);
+    let fmt_layer = tracing_subscriber::fmt::layer().with_target(false);
 
     let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
 
@@ -32,7 +33,7 @@ fn main() {
 
     let args = Arguments::parse();
 
-    match lookup_domain(&args.request) {
+    match lookup_domain(&args) {
         Ok(ip) => println!("{ip}"),
         Err(e) => eprintln!("{e}"),
     }
@@ -81,12 +82,18 @@ fn send_query(query: Message, server_addr: std::net::IpAddr) -> MsgResult<Messag
     Message::from_bytes(&mut msg_bytes_reader)
 }
 
-pub fn lookup_domain(domain_name: &str) -> MsgResult<std::net::IpAddr> {
-    resolve(domain_name, QType::A)
+fn lookup_domain(args: &Arguments) -> MsgResult<std::net::IpAddr> {
+    match args.ip_v6 {
+        true => resolve(&args.request, QType::AAAA),
+        false => resolve(&args.request, QType::A),
+    }
 }
 
 pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpAddr> {
-    let mut nameserver = std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 41, 0, 4));
+    let mut nameserver = match record_type {
+        QType::AAAA => std::net::IpAddr::V6("2001:503:ba3e::2:30".parse().unwrap()),
+        _ => std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 41, 0, 4)),
+    };
     loop {
         tracing::info!("Querying {nameserver} for \"{domain_name}\"");
         let query = Message::new_query(domain_name, record_type, false, false);
@@ -95,14 +102,14 @@ pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpA
 
         tracing::debug!("Received response: {:?}", resp.header);
 
-        if let Some(domain_ip_rr) = resp.get_record_by_type_from(QType::A, MsgSection::Answers) {
+        if let Some(domain_ip_rr) = resp.get_record_by_type_from(record_type, MsgSection::Answers) {
             tracing::debug!(
                 "Found answer for \"{domain_name}\": {}",
                 domain_ip_rr.data_as_ip_addr()
             );
             return Ok(domain_ip_rr.data_as_ip_addr());
         } else if let Some(ns_ip_rr) =
-            resp.get_record_by_type_from(QType::A, MsgSection::Additionals)
+            resp.get_record_by_type_from(record_type, MsgSection::Additionals)
         {
             nameserver = ns_ip_rr.data_as_ip_addr();
             tracing::debug!("Referred to new nameserver: {nameserver}");
@@ -187,7 +194,17 @@ mod tests {
     #[test]
     fn test_cname() -> MsgResult<()> {
         // facebook has multiple IP addrs, no sense checking for any possible one.
-        let _ = lookup_domain("www.facebook.com").expect("Failed to lookup domain");
+        let _ = resolve("www.facebook.com", QType::A).expect("Failed to lookup domain");
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_ipv6() -> MsgResult<()> {
+        let result_ip = resolve("www.example.com", QType::AAAA).expect("Failed to resolve");
+        let correct_ip = "2606:2800:220:1:248:1893:25c8:1946"
+            .parse::<std::net::Ipv6Addr>()
+            .unwrap();
+        assert_eq!(result_ip, correct_ip);
         Ok(())
     }
 }
