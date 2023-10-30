@@ -10,6 +10,7 @@ Meant as a foray into networking, I intend for this project to be my own impleme
 - [x] Header and question parsing
 - [x] recursive resolving
 - [x] type-dependent record parsing (A and NS types)
+- [x] IPv6 querying support
 
 ## TODO / Potential Features
 
