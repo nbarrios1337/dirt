@@ -199,6 +199,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "GitHub CI doesn't support IPv6.\nSee https://github.com/actions/runner-images/issues/668"]
     fn test_resolve_ipv6() -> MsgResult<()> {
         let result_ip = resolve("www.example.com", QType::AAAA).expect("Failed to resolve");
         let correct_ip = "2606:2800:220:1:248:1893:25c8:1946"
