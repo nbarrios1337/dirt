@@ -26,8 +26,8 @@ impl Label {
     }
 }
 
-impl ToString for Label {
-    fn to_string(&self) -> String {
-        self.0.clone()
+impl std::fmt::Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

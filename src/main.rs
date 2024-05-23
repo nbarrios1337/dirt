@@ -100,7 +100,7 @@ pub fn resolve(domain_name: &str, record_type: QType) -> MsgResult<std::net::IpA
 
         let resp = send_query(query, nameserver)?;
 
-        tracing::debug!("Received response: {:?}", resp.header);
+        tracing::debug!("Received response: {:?}\n{:?}", resp.header, resp);
 
         if let Some(domain_ip_rr) = resp.get_record_by_type_from(record_type, MsgSection::Answers) {
             tracing::debug!(
