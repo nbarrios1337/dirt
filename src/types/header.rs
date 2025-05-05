@@ -320,7 +320,7 @@ impl Header {
         recursion_desired: bool,
     ) -> Result<Self> {
         Ok(Self {
-            id: rand::thread_rng().gen(),
+            id: rand::rng().random(),
             flags: HeaderFlags::default()
                 .set_op_code(query_type)?
                 .set_authoritative(authoritative)
